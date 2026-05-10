@@ -1,0 +1,60 @@
+# ------------------------------
+# IECE_GATEWAY_IP comes from .env file
+# that exists in same directory as this script
+# 
+services:
+  iece_gateway:
+    build: ../iece_gateway
+    ports:
+      - "443:443"
+    volumes:
+      - ../iece_gateway/default.conf:/etc/nginx/conf.d/default.conf
+      - ./certs:/etc/nginx/certs
+    depends_on:
+      - iece_auth
+    networks:
+      - iece_network
+
+  iece_auth:
+    env_file:
+      - ../iece_auth/.env
+    build: ../iece_auth
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../iece_auth:/app
+    expose:
+      - "8000"
+    networks:
+      - iece_network
+
+  iece_church:
+    env_file:
+      - ../iece_church/.env
+    build: ../iece_church
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../iece_church:/app
+    depends_on:
+      - iece_auth
+    expose:
+      - "8001"
+    networks:
+      - iece_network
+
+  # iece_report:
+  #   build: ./iece_report
+  #   env_file:
+  #     - ./iece_report/.env
+  #   image: iece_report
+  #   networks:
+  #     - iece_network
+  #   volumes:
+  #     - ./iece_report/output:/app/output
+  #   depends_on:
+  #     - iece_auth
+  #     - iece_church
+  #     - iece_gateway
+networks:
+  iece_network:

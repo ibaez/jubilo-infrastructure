@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+
+import argparse
+from services.docker import (
+	docker_generate_service_tokens,
+	docker_generate_top_level_env_files,
+	docker_get_host_ip,
+	docker_generate_ssl_certs,
+	docker_generate_auth_service_env_file,
+	docker_generate_church_service_env_file,
+	docker_generate_jubilo_mobile_env_file,
+	docker_build,
+	docker_start,
+	docker_stop,
+	docker_down,
+	docker_run,
+)
+
+import time
+import requests
+from pathlib import Path
+
+def dev_setup(service_name_list=None):
+	print("Setting up development environment...")
+
+	docker_down([])
+
+	docker_host_ip = docker_get_host_ip()
+	print(f"Docker host IP address: {docker_host_ip}")
+
+	docker_generate_top_level_env_files(docker_host_ip)
+
+	docker_generate_ssl_certs(docker_host_ip)
+
+	#------------------------------
+	# CHURCH SERVICE
+	#
+	church_service_tokens = docker_generate_service_tokens()
+
+	print(f"CHURCH Service:")
+	print(f"  Client ID     : {church_service_tokens['client_id']}")
+	print(f"  Client Secret : {church_service_tokens['client_secret']}")
+
+	docker_generate_church_service_env_file(docker_host_ip, church_service_tokens)
+
+	#------------------------------
+	# JUBILO MOBILE SERVICE
+	#
+	jubilo_mobile_tokens = docker_generate_service_tokens()
+
+	print(f"JUBILO MOBILE Service:")
+	print(f"  Client ID     : {jubilo_mobile_tokens['client_id']}")
+	print(f"  Client Secret : {jubilo_mobile_tokens['client_secret']}")
+
+	docker_generate_jubilo_mobile_env_file(docker_host_ip, jubilo_mobile_tokens)
+
+	#------------------------------
+	# AUTH SERVICE
+	#
+	auth_service_tokens = docker_generate_service_tokens()
+
+	auth_service_tokens['DJANGO_SUPERUSER_EMAIL'] = 'su1@iece.app'
+	auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'] = 'su1'
+	auth_service_tokens['DJANGO_SUPERUSER_FIRST_NAME'] = 'su1'
+	auth_service_tokens['DJANGO_SUPERUSER_LAST_NAME'] = 'su1'
+
+	print(f"AUTH Service:")
+	print(f"  Client ID                   : {auth_service_tokens['client_id']}")
+	print(f"  Client Secret               : {auth_service_tokens['client_secret']}")
+	print(f"  DJANGO_SUPERUSER_EMAIL      : {auth_service_tokens['DJANGO_SUPERUSER_EMAIL']}")
+	print(f"  DJANGO_SUPERUSER_PASSWORD   : {auth_service_tokens['DJANGO_SUPERUSER_PASSWORD']}")
+	print(f"  DJANGO_SUPERUSER_FIRST_NAME : {auth_service_tokens['DJANGO_SUPERUSER_FIRST_NAME']}")
+	print(f"  DJANGO_SUPERUSER_LAST_NAME  : {auth_service_tokens['DJANGO_SUPERUSER_LAST_NAME']}")
+
+	docker_generate_auth_service_env_file(docker_host_ip, {
+		"auth": auth_service_tokens,
+		"church": church_service_tokens,
+		"jubilo_mobile": jubilo_mobile_tokens
+	})
+
+	docker_build([])
+
+	# ------------------------------
+	# NOTE: Because we are using Docker, the container itself is the environment so a virtual environment is not necessary.
+	#       For services that use Python, the Python interpreter would be isolated inside the container, so we don't need to worry about activating a virtual environment like we would in a non-Dockerized setup.
+	#       Dependencies are installed inside the Docker container as part of the Dockerfile, so we just need to make sure that the Docker container is built and running.
+	#       Service specific scripts need to run inside the container, so we can use "docker compose exec" or "docker compose run --rm" command to run them.
+	# 
+
+	docker_run("auth", "python -m scripts.auth_dev_setup")
+
+	#------------------------------
+	# Since gateway container depends on auth service, we can start
+	# the gateway container which will automatically start the auth service container as well. 
+	# This way we ensure that the auth service is fully up and running before we try to acquire
+	# a token for the auth service superuser, which is necessary for running the rest of the
+	# setup scripts for the other services since they need to make authenticated requests to the auth service.
+	# 
+	docker_start(["gateway"])
+	# docker_start(["auth"])
+
+	#------------------------------
+	# Aquiring token for auth service superuser using credentials:
+	#    auth_service_tokens['DJANGO_SUPERUSER_EMAIL']
+	#    auth_service_tokens['DJANGO_SUPERUSER_PASSWORD']
+	# But using the registered Postman application client_id which uses the Password Grant flow.
+	# The Password Grant flow is the most straightforward way to acquire a token for the superuser
+	# since we have their username and password, and we don't have to worry about setting up a separate
+	# client credentials flow or manually creating a token in the database.
+	# 
+	# NOTE: Only for development and testing purposes.
+	# In production, you would want to use a more secure flow and not have the superuser
+	# credentials hardcoded or easily accessible.
+	# 
+	jubilo_auth_access_token = None
+
+	CA_CERT = str(Path(__file__).parent / "rootCA.pem")
+
+	while not jubilo_auth_access_token:
+		try:
+			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
+				data={
+					"grant_type": "password",
+					"username": auth_service_tokens['DJANGO_SUPERUSER_EMAIL'],
+					"password": auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'],
+					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
+				},
+				verify=CA_CERT,
+				timeout=5)
+			
+			response.raise_for_status()
+
+			json_data = response.json()
+			if "access_token" not in json_data:
+				raise ValueError(f"Response JSON does not contain 'access_token': {json_data}")
+			jubilo_auth_access_token = json_data.get("access_token")
+		except Exception as e:
+			RETRY_SECONDS = 1
+			print(f"Failed to acquire access token for auth service superuser. Error: {e}")
+			print(f"Retrying in {RETRY_SECONDS} seconds...")
+			time.sleep(RETRY_SECONDS)
+
+	print(f"Acquired access token for auth service superuser: {jubilo_auth_access_token}")
+
+COMMANDS = {
+	"docker.build": docker_build,
+	"docker.start": docker_start,
+	"docker.stop": docker_stop,
+	"docker.down": docker_down,
+	"dev.setup": dev_setup,
+}
+
+def main():
+	parser = argparse.ArgumentParser(prog = "jubilo", description = "Jubilo CLI - Manage your Jubilo infrastructure with ease")
+
+	parser.add_argument("group", help="Service group to manage")
+	parser.add_argument("action", help="Action to perform on the service group")
+	parser.add_argument("service_name_list", nargs="*", help="Specific services to target (optional)")
+
+	args = parser.parse_args()
+
+	command_key = f"{args.group}.{args.action}"
+
+	if command_key not in COMMANDS:
+		print(f"Unknown command: {command_key}")
+		parser.print_help()
+		return
+
+	command = COMMANDS[command_key]
+
+	try:
+		command(args.service_name_list)
+	except Exception as e:
+		print(f"Error: {e}")
+
+
+if __name__ == "__main__":
+	main()
