@@ -2,7 +2,7 @@ SERVICES = {
 	"gateway": "iece_gateway",
 	"auth": "iece_auth",
 	"church": "iece_church",
-	# "music": "iece_music"
+	"music": "jubilo_music"
 }
 
 def resolve_services(name_list):

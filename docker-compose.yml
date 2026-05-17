@@ -4,11 +4,11 @@
 # 
 services:
   iece_gateway:
-    build: ../iece_gateway
+    build: ../iece-gateway
     ports:
       - "443:443"
     volumes:
-      - ../iece_gateway/default.conf:/etc/nginx/conf.d/default.conf
+      - ../iece-gateway/default.conf:/etc/nginx/conf.d/default.conf
       - ./certs:/etc/nginx/certs
     depends_on:
       - iece_auth
@@ -17,12 +17,12 @@ services:
 
   iece_auth:
     env_file:
-      - ../iece_auth/.env
-    build: ../iece_auth
+      - ../iece-auth/.env
+    build: ../iece-auth
     ports:
       - "8000:8000"
     volumes:
-      - ../iece_auth:/app
+      - ../iece-auth:/app
     expose:
       - "8000"
     networks:
@@ -30,16 +30,31 @@ services:
 
   iece_church:
     env_file:
-      - ../iece_church/.env
-    build: ../iece_church
+      - ../iece-church/.env
+    build: ../iece-church
     ports:
       - "8001:8000"
     volumes:
-      - ../iece_church:/app
+      - ../iece-church:/app
     depends_on:
       - iece_auth
     expose:
       - "8001"
+    networks:
+      - iece_network
+
+  jubilo_music:
+    env_file:
+      - ../jubilo-music/.env
+    build: ../jubilo-music
+    ports:
+      - "8002:8000"
+    volumes:
+      - ../jubilo-music:/app
+    depends_on:
+      - iece_auth
+    expose:
+      - "8002"
     networks:
       - iece_network
 

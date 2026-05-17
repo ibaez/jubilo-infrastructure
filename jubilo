@@ -8,6 +8,7 @@ from services.docker import (
 	docker_generate_ssl_certs,
 	docker_generate_auth_service_env_file,
 	docker_generate_church_service_env_file,
+	docker_generate_music_service_env_file,
 	docker_generate_jubilo_mobile_env_file,
 	docker_build,
 	docker_start,
@@ -44,6 +45,17 @@ def dev_setup(service_name_list=None):
 	docker_generate_church_service_env_file(docker_host_ip, church_service_tokens)
 
 	#------------------------------
+	# MUSIC SERVICE
+	#
+	jubilo_music_service_tokens = docker_generate_service_tokens()
+
+	print(f"JUBILO MUSIC Service:")
+	print(f"  Client ID     : {jubilo_music_service_tokens['client_id']}")
+	print(f"  Client Secret : {jubilo_music_service_tokens['client_secret']}")
+
+	docker_generate_music_service_env_file(docker_host_ip, jubilo_music_service_tokens)
+
+	#------------------------------
 	# JUBILO MOBILE SERVICE
 	#
 	jubilo_mobile_tokens = docker_generate_service_tokens()
@@ -75,7 +87,8 @@ def dev_setup(service_name_list=None):
 	docker_generate_auth_service_env_file(docker_host_ip, {
 		"auth": auth_service_tokens,
 		"church": church_service_tokens,
-		"jubilo_mobile": jubilo_mobile_tokens
+		"jubilo_mobile": jubilo_mobile_tokens,
+		"jubilo_music": jubilo_music_service_tokens,
 	})
 
 	docker_build([])
@@ -97,7 +110,13 @@ def dev_setup(service_name_list=None):
 	# setup scripts for the other services since they need to make authenticated requests to the auth service.
 	# 
 	docker_start(["gateway"])
-	# docker_start(["auth"])
+
+	#------------------------------
+	# Wait for the services to be fully up and running before
+	#    Trying to acquire a token for the auth service superuser
+	#    Making a jubilo music service request using the auth service superuser token to verify that everything is working end to end.
+	# 
+	# time.sleep(5)
 
 	#------------------------------
 	# Aquiring token for auth service superuser using credentials:
@@ -141,6 +160,42 @@ def dev_setup(service_name_list=None):
 			time.sleep(RETRY_SECONDS)
 
 	print(f"Acquired access token for auth service superuser: {jubilo_auth_access_token}")
+
+	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(jubilo_auth_access_token))
+	docker_start(["music"])
+
+	time.sleep(5)
+
+	url = f"https://{docker_host_ip}/api/music/hello"
+
+	print(f"Making request to {url}")
+
+	response = requests.get(url,
+		headers={
+			"Authorization": f"Bearer {jubilo_auth_access_token}"
+		},
+		verify=CA_CERT,
+		timeout=5)
+
+	print(f"Hello request to music service response: {response.status_code} - {response.text}")
+
+	url = f"https://{docker_host_ip}/api/music/artist"
+
+	print(f"Making request to {url}")
+
+	response = requests.get(url,
+		headers={
+			"Authorization": f"Bearer {jubilo_auth_access_token}"
+		},
+		verify=CA_CERT,
+		timeout=5)
+	
+	print(f"ArtistList request to music service response: {response.status_code} - {response.text}")
+
+	list = response.json()
+
+	for artist in list:
+		print(f"Artist: {artist['artist_name']}")
 
 COMMANDS = {
 	"docker.build": docker_build,

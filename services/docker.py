@@ -3,7 +3,7 @@ from core.service_registry import SERVICES, resolve_services
 from secrets import token_urlsafe
 
 def docker_generate_auth_service_env_file(docker_host_ip, tokens):
-	with open("../iece_auth/.env", "w") as f:
+	with open("../iece-auth/.env", "w") as f:
 		f.write(f"DJANGO_SUPERUSER_EMAIL={tokens['auth']['DJANGO_SUPERUSER_EMAIL']}\n")
 		f.write(f"DJANGO_SUPERUSER_PASSWORD={tokens['auth']['DJANGO_SUPERUSER_PASSWORD']}\n")
 		f.write(f"DJANGO_SUPERUSER_FIRST_NAME={tokens['auth']['DJANGO_SUPERUSER_FIRST_NAME']}\n")
@@ -15,9 +15,17 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 		f.write(f"IECE_CHURCH_CLIENT_SECRET={tokens['church']['client_secret']}\n")
 		f.write(f"JUBILO_MOBILE_CLIENT_ID={tokens['jubilo_mobile']['client_id']}\n")
 		f.write(f"JUBILO_MOBILE_CLIENT_SECRET={tokens['jubilo_mobile']['client_secret']}\n")
+		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['jubilo_music']['client_id']}\n")
+		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['jubilo_music']['client_secret']}\n")
+
+def docker_generate_music_service_env_file(docker_host_ip, tokens):
+	with open("../jubilo-music/.env", "w") as f:
+		f.write(f"IECE_GATEWAY_IP={docker_host_ip}\n")
+		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['client_id']}\n")
+		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['client_secret']}\n")
 
 def docker_generate_church_service_env_file(docker_host_ip, tokens):
-	with open("../iece_church/.env", "w") as f:
+	with open("../iece-church/.env", "w") as f:
 		f.write(f"IECE_GATEWAY_IP={docker_host_ip}\n")
 		f.write(f"IECE_CHURCH_CLIENT_ID={tokens['client_id']}\n")
 		f.write(f"IECE_CHURCH_CLIENT_SECRET={tokens['client_secret']}\n")
