@@ -135,6 +135,8 @@ def dev_setup(service_name_list=None):
 
 	CA_CERT = str(Path(__file__).parent / "rootCA.pem")
 
+	print(f"CA_CERT path: {CA_CERT}")
+
 	while not jubilo_auth_access_token:
 		try:
 			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
@@ -162,6 +164,7 @@ def dev_setup(service_name_list=None):
 	print(f"Acquired access token for auth service superuser: {jubilo_auth_access_token}")
 
 	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(jubilo_auth_access_token))
+	
 	docker_start(["music"])
 
 	time.sleep(5)
@@ -197,12 +200,61 @@ def dev_setup(service_name_list=None):
 	for artist in list:
 		print(f"Artist: {artist['artist_name']}")
 
+def dev_test(service_name_list=None):
+	print("Running development tests...")
+
+	docker_host_ip = docker_get_host_ip()
+	print(f"Docker host IP address: {docker_host_ip}")
+
+	auth_service_tokens = {}
+	auth_service_tokens['DJANGO_SUPERUSER_EMAIL'] = 'su1@iece.app'
+	auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'] = 'su1'
+
+	jubilo_auth_access_token = None
+
+	CA_CERT = str(Path(__file__).parent / "rootCA.pem")
+
+	while not jubilo_auth_access_token:
+		try:
+			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
+				data={
+					"grant_type": "password",
+					"username": auth_service_tokens['DJANGO_SUPERUSER_EMAIL'],
+					"password": auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'],
+					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
+				},
+				verify=CA_CERT,
+				timeout=5)
+			
+			response.raise_for_status()
+
+			json_data = response.json()
+			if "access_token" not in json_data:
+				raise ValueError(f"Response JSON does not contain 'access_token': {json_data}")
+			jubilo_auth_access_token = json_data.get("access_token")
+		except Exception as e:
+			RETRY_SECONDS = 1
+			print(f"Failed to acquire access token for auth service superuser. Error: {e}")
+			print(f"Retrying in {RETRY_SECONDS} seconds...")
+			time.sleep(RETRY_SECONDS)
+
+	#------------------------------
+	# Running a specific test
+	# 
+	# docker_run("music", "python manage.py test music.tests.test_artist_superuser.ArtistSuperuserTests.test_update_artist_without_changes_to_editable_fields", env={"SUPERUSER_ACCESS_TOKEN": jubilo_auth_access_token})
+
+	#------------------------------
+	# Running all tests
+	# 
+	docker_run("music", "python manage.py test music.tests.test_artist_superuser", env={"SUPERUSER_ACCESS_TOKEN": jubilo_auth_access_token})
+
 COMMANDS = {
 	"docker.build": docker_build,
 	"docker.start": docker_start,
 	"docker.stop": docker_stop,
 	"docker.down": docker_down,
 	"dev.setup": dev_setup,
+	"dev.test": dev_test,
 }
 
 def main():

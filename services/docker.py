@@ -1,3 +1,4 @@
+import os
 from core.shell import run
 from core.service_registry import SERVICES, resolve_services
 from secrets import token_urlsafe
@@ -97,10 +98,33 @@ def docker_start(service_name_list):
 	run(f"docker compose up -d {' '.join(service_list)}")
 	print(f"Container started: {service_list}")
 
-def docker_run(service_name, cmd):
+def docker_run(service_name, cmd, env=None):
 	service_list = resolve_services([service_name])
 	resolved_service_name = service_list[0]
 
+	# ------------------------------
+	# Part 1: Copy the current host process environment
+	# so we can pass it to the docker compose command.
+	#
+	process_env = os.environ.copy()
+	env_flags = ''
+	if env:
+		# ------------------------------
+		# Part 2: Add the env vars to the host process environment
+		# so that the docker compose command can see them when it runs.
+		#
+		process_env.update(env)
+
+		# ------------------------------
+		# Part 3: Add -e flags to the docker compose run command
+		# so that Docker knows to pull these vars from the host
+		# process environment and inject them into the container.
+		# Note: We pass just the key (no value) because Docker will
+		# read the value from the host process environment (Part 2).
+		#
+		env_flags = ' '.join(f"-e {k}" for k in env.keys())
+
+	full_cmd = f"docker compose run --rm {env_flags} {resolved_service_name} {cmd}"
 	print(f"Running command in container {resolved_service_name}: {cmd}")
-	run(f"docker compose run --rm {resolved_service_name} {cmd}")
+	run(full_cmd, process_env=process_env)
 	print(f"Command executed successfully in container {resolved_service_name}")

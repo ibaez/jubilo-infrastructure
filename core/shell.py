@@ -1,13 +1,14 @@
 import subprocess
 
-def run(cmd, capture_output=False):
+def run(cmd, capture_output=False, process_env=None):
     if capture_output:
         # --- CAPTURE MODE (no streaming) ---
         result = subprocess.run(
             cmd,
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            env=process_env
         )
 
         if result.returncode != 0:
@@ -25,7 +26,8 @@ def run(cmd, capture_output=False):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=process_env
         )
 
         # stream live
