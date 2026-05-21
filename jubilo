@@ -131,19 +131,19 @@ def dev_setup(service_name_list=None):
 	# In production, you would want to use a more secure flow and not have the superuser
 	# credentials hardcoded or easily accessible.
 	# 
-	jubilo_auth_access_token = None
+	superuser_access_token = None
 
 	CA_CERT = str(Path(__file__).parent / "rootCA.pem")
 
 	print(f"CA_CERT path: {CA_CERT}")
 
-	while not jubilo_auth_access_token:
+	while not superuser_access_token:
 		try:
 			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
 				data={
 					"grant_type": "password",
-					"username": auth_service_tokens['DJANGO_SUPERUSER_EMAIL'],
-					"password": auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'],
+					"username": "su1@iece.app",
+					"password": "su1",
 					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
 				},
 				verify=CA_CERT,
@@ -154,14 +154,14 @@ def dev_setup(service_name_list=None):
 			json_data = response.json()
 			if "access_token" not in json_data:
 				raise ValueError(f"Response JSON does not contain 'access_token': {json_data}")
-			jubilo_auth_access_token = json_data.get("access_token")
+			superuser_access_token = json_data.get("access_token")
 		except Exception as e:
 			RETRY_SECONDS = 1
 			print(f"Failed to acquire access token for auth service superuser. Error: {e}")
 			print(f"Retrying in {RETRY_SECONDS} seconds...")
 			time.sleep(RETRY_SECONDS)
 
-	print(f"Acquired access token for auth service superuser: {jubilo_auth_access_token}")
+	print(f"Acquired access token for auth service superuser: {superuser_access_token}")
 
 	#------------------------------
 	# Inviting a user with member privileges.
@@ -174,7 +174,7 @@ def dev_setup(service_name_list=None):
 				"last_name": "Baez",
 			},
 			headers={
-				"Authorization": f"Bearer {jubilo_auth_access_token}"
+				"Authorization": f"Bearer {superuser_access_token}"
 			},
 			verify=CA_CERT,
 			timeout=5)
@@ -193,7 +193,7 @@ def dev_setup(service_name_list=None):
 	try:
 		response = requests.get(f"https://{docker_host_ip}/auth/invitation",
 			headers={
-				"Authorization": f"Bearer {jubilo_auth_access_token}"
+				"Authorization": f"Bearer {superuser_access_token}"
 			},
 			verify=CA_CERT,
 			timeout=5)
@@ -253,7 +253,7 @@ def dev_setup(service_name_list=None):
 
 	print(f"Acquired access token for auth service member: {member_access_token}")
 
-	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(jubilo_auth_access_token))
+	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(superuser_access_token))
 	
 	docker_start(["music"])
 
@@ -265,7 +265,7 @@ def dev_setup(service_name_list=None):
 
 	response = requests.get(url,
 		headers={
-			"Authorization": f"Bearer {jubilo_auth_access_token}"
+			"Authorization": f"Bearer {superuser_access_token}"
 		},
 		verify=CA_CERT,
 		timeout=5)
@@ -278,7 +278,7 @@ def dev_setup(service_name_list=None):
 
 	response = requests.get(url,
 		headers={
-			"Authorization": f"Bearer {jubilo_auth_access_token}"
+			"Authorization": f"Bearer {superuser_access_token}"
 		},
 		verify=CA_CERT,
 		timeout=5)
@@ -293,80 +293,25 @@ def dev_setup(service_name_list=None):
 def dev_test(service_name_list=None):
 	print("Running development tests...")
 
-	docker_host_ip = docker_get_host_ip()
-	print(f"Docker host IP address: {docker_host_ip}")
-
-	auth_service_tokens = {}
-	auth_service_tokens['DJANGO_SUPERUSER_EMAIL'] = 'su1@iece.app'
-	auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'] = 'su1'
-
-	jubilo_auth_access_token = None
-
-	CA_CERT = str(Path(__file__).parent / "rootCA.pem")
-
-	while not jubilo_auth_access_token:
-		try:
-			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
-				data={
-					"grant_type": "password",
-					"username": auth_service_tokens['DJANGO_SUPERUSER_EMAIL'],
-					"password": auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'],
-					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
-				},
-				verify=CA_CERT,
-				timeout=5)
-			
-			response.raise_for_status()
-
-			json_data = response.json()
-			if "access_token" not in json_data:
-				raise ValueError(f"Response JSON does not contain 'access_token': {json_data}")
-			jubilo_auth_access_token = json_data.get("access_token")
-		except Exception as e:
-			RETRY_SECONDS = 1
-			print(f"Failed to acquire access token for auth service superuser. Error: {e}")
-			print(f"Retrying in {RETRY_SECONDS} seconds...")
-			time.sleep(RETRY_SECONDS)
-
-	print(f"Acquired access token for auth service superuser: {jubilo_auth_access_token}")
+	#------------------------------
+	# Running a specific test for superuser
+	# 
+	# docker_run("music", "python manage.py test music.tests.test_artist_superuser.ArtistSuperuserTests.test_create_name_field_missing")
 
 	#------------------------------
-	# Acquiring access token for auth service member user.
+	# Running all tests for superuser
 	# 
-	member_access_token = None
-	try:
-		response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
-			data={
-				"grant_type": "password",
-				"username": "ib@gmail.com",
-				"password": "testpassword",
-				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
-			},
-			verify=CA_CERT,
-			timeout=5)
-		
-		response.raise_for_status()
-
-		json_data = response.json()
-		if "access_token" not in json_data:
-			raise ValueError(f"Response JSON does not contain 'access_token': {json_data}")
-		member_access_token = json_data.get("access_token")
-	except Exception as e:
-		print(f"Failed to acquire access token for auth service member. Error: {e}")
-		return
-
-	print(f"Acquired access token for auth service member: {member_access_token}")
+	docker_run("music", "python manage.py test music.tests.test_artist_superuser")
 
 	#------------------------------
-	# Running a specific test
+	# Running a specific test for member
 	# 
-	# docker_run("music", "python manage.py test music.tests.test_artist_superuser.ArtistSuperuserTests.test_update_artist_without_changes_to_editable_fields", env={"SUPERUSER_ACCESS_TOKEN": jubilo_auth_access_token})
+	# docker_run("music", "python manage.py test music.tests.test_artist_member.ArtistMemberTests.test_member_create_artist_denied")
 
 	#------------------------------
-	# Running all tests
+	# Running all tests for member
 	# 
-	docker_run("music", "python manage.py test music.tests.test_artist_superuser", env={"SUPERUSER_ACCESS_TOKEN": jubilo_auth_access_token})
-	# docker_run("music", "python manage.py test music.tests.test_artist_member", env={"MEMBER_ACCESS_TOKEN": member_access_token})
+	# docker_run("music", "python manage.py test music.tests.test_artist_member")
 
 COMMANDS = {
 	"docker.build": docker_build,
