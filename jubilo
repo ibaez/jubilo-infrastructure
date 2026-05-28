@@ -294,24 +294,51 @@ def dev_test(service_name_list=None):
 	print("Running development tests...")
 
 	#------------------------------
-	# Running a specific test for superuser
+	# Running a specific artist test for superuser
 	# 
-	# docker_run("music", "python manage.py test music.tests.test_artist_superuser.ArtistSuperuserTests.test_create_name_field_missing")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist_superuser.ArtistSuperuserTests.test_retrieve_artist_does_not_include_deleted_albums")
 
 	#------------------------------
-	# Running all tests for superuser
+	# Running all artist tests for superuser
 	# 
-	docker_run("music", "python manage.py test music.tests.test_artist_superuser")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist_superuser")
 
 	#------------------------------
-	# Running a specific test for member
+	# Running a specific artist test for member
 	# 
-	# docker_run("music", "python manage.py test music.tests.test_artist_member.ArtistMemberTests.test_member_create_artist_denied")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist_music_member.ArtistMemberTests.test_retrieve_artist_allowed")
 
 	#------------------------------
-	# Running all tests for member
+	# Running all artist tests for member
 	# 
-	# docker_run("music", "python manage.py test music.tests.test_artist_member")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist_music_member")
+
+
+
+	#------------------------------
+	# Running a specific album test for superuser
+	# 
+	# docker_run("music", "python manage.py test music.tests.album.test_album_superuser.AlbumSuperuserTests.test_update_album_with_title_field_already_existing_with_same_case_for_same_artist_should_fail")
+
+	#------------------------------
+	# Running all album tests for superuser
+	# 
+	# docker_run("music", "python manage.py test music.tests.album.test_album_superuser")
+
+	#------------------------------
+	# Running a specific album test for member
+	# 
+	# docker_run("music", "python manage.py test music.tests.album.test_album_music_member.AlbumMemberTests.test_list_albums_allowed")
+
+	#------------------------------
+	# Running all album tests for member
+	# 
+	# docker_run("music", "python manage.py test music.tests.album.test_album_music_member")
+
+	#------------------------------
+	# Running ALL tests
+	# 
+	docker_run("music", "python manage.py test music.tests")
 
 COMMANDS = {
 	"docker.build": docker_build,

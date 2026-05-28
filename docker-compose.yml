@@ -44,17 +44,15 @@ services:
       - iece_network
 
   jubilo_music_db:
-    image: mysql:8
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    image: postgres:16
     environment:
-        MYSQL_DATABASE: jubilo_music
-        MYSQL_USER: jubilo_music
-        MYSQL_PASSWORD: jubilo_music
-        MYSQL_ROOT_PASSWORD: root
+        POSTGRES_DB: jubilo_music
+        POSTGRES_USER: jubilo_music_user
+        POSTGRES_PASSWORD: jubilo_music_password
     ports:
-      - "3306:3306"
+      - "5432:5432"
     healthcheck:
-        test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -proot || exit 1"]
+        test: ["CMD-SHELL", "pg_isready -U jubilo_music -d jubilo_music || exit 1"]
         interval: 5s
         timeout: 5s
         retries: 5
