@@ -1,8 +1,9 @@
 SERVICES = {
-	"gateway": "iece_gateway",
-	"auth": "iece_auth",
-	"church": "iece_church",
-	"music": "jubilo_music"
+	"gateway"    : "iece_gateway",
+	"auth"       : "iece_auth",
+	"church"     : "iece_church",
+	"music"      : "jubilo_music",
+	"meilisearch": "jubilo_meilisearch"
 }
 
 def resolve_services(name_list):

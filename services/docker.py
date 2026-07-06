@@ -21,9 +21,18 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 
 def docker_generate_music_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-music/.env", "w") as f:
-		f.write(f"IECE_GATEWAY_IP={docker_host_ip}\n")
+		f.write(f"MUSIC_SERVICE_BASE_URL=https://{docker_host_ip}/api/music\n")
+		f.write(f"AUTH_SERVICE_INTROSPECTION_URL=https://{docker_host_ip}/auth/o/introspect/\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['client_id']}\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['client_secret']}\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_ENGINE=django.db.backends.postgresql\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_NAME=jubilo_music\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_USER=jubilo_music_user\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_PASSWORD=jubilo_music_password\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_HOST=jubilo_music_db\n")
+		f.write(f"JUBILO_MUSIC_DATABASE_PORT=5432\n")
+		f.write(f"JUBILO_MEILISEARCH_MASTER_KEY={tokens['JUBILO_MEILISEARCH_MASTER_KEY']}\n")
+		f.write(f"JUBILO_MEILISEARCH_URL={tokens['JUBILO_MEILISEARCH_URL']}\n")
 
 def docker_generate_church_service_env_file(docker_host_ip, tokens):
 	with open("../iece-church/.env", "w") as f:
@@ -54,7 +63,7 @@ def docker_generate_service_tokens():
 		"client_secret": generate_token(96)
 	}
 
-def docker_generate_top_level_env_files(ip):
+def docker_generate_jubilo_infrastructure_env_files(ip):
 	#------------------------------
 	# This is the top level .env file that docker compose will read, and it will be used to set the DOCKER_HOST_IP environment variable for all the services in the stack.
 	# This is necessary because the services in the stack need to know the IP address of the Docker host machine in order to make requests to each other, since they will be running in separate containers and won't be able to use "localhost" to refer to the host machine.

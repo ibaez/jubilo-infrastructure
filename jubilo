@@ -3,7 +3,7 @@
 import argparse
 from services.docker import (
 	docker_generate_service_tokens,
-	docker_generate_top_level_env_files,
+	docker_generate_jubilo_infrastructure_env_files,
 	docker_get_host_ip,
 	docker_generate_ssl_certs,
 	docker_generate_auth_service_env_file,
@@ -15,6 +15,7 @@ from services.docker import (
 	docker_stop,
 	docker_down,
 	docker_run,
+	generate_token,
 )
 
 import time
@@ -29,7 +30,7 @@ def dev_setup(service_name_list=None):
 	docker_host_ip = docker_get_host_ip()
 	print(f"Docker host IP address: {docker_host_ip}")
 
-	docker_generate_top_level_env_files(docker_host_ip)
+	docker_generate_jubilo_infrastructure_env_files(docker_host_ip)
 
 	docker_generate_ssl_certs(docker_host_ip)
 
@@ -52,6 +53,9 @@ def dev_setup(service_name_list=None):
 	print(f"JUBILO MUSIC Service:")
 	print(f"  Client ID     : {jubilo_music_service_tokens['client_id']}")
 	print(f"  Client Secret : {jubilo_music_service_tokens['client_secret']}")
+
+	jubilo_music_service_tokens['JUBILO_MEILISEARCH_MASTER_KEY'] = generate_token(32)
+	jubilo_music_service_tokens['JUBILO_MEILISEARCH_URL'] = f"http://jubilo_meilisearch:7700"
 
 	docker_generate_music_service_env_file(docker_host_ip, jubilo_music_service_tokens)
 
@@ -168,10 +172,16 @@ def dev_setup(service_name_list=None):
 	# 
 	try:
 		response = requests.post(f"https://{docker_host_ip}/auth/invitation",
-			data={
+			json={
 				"email": "ib@gmail.com",
 				"first_name": "Ismael",
 				"last_name": "Baez",
+				"roles": [
+					{
+						"service": "music",
+						"role": "music_member"
+					}
+				]
 			},
 			headers={
 				"Authorization": f"Bearer {superuser_access_token}"
@@ -253,9 +263,14 @@ def dev_setup(service_name_list=None):
 
 	print(f"Acquired access token for auth service member: {member_access_token}")
 
+	docker_start(["meilisearch"])
+	docker_start(["music"])
+
+	time.sleep(2)
+
 	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(superuser_access_token))
 	
-	docker_start(["music"])
+	
 
 	time.sleep(5)
 
@@ -312,77 +327,136 @@ def dev_test(service_name_list=None):
 	print("Running development tests...")
 
 	#------------------------------
-	# Running a specific artist test for superuser
+	# Running invitation tests for auth service
 	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist_superuser.ArtistSuperuserTests.test_retrieve_artist_does_not_include_deleted_albums")
-
-	#------------------------------
-	# Running all artist tests for superuser
-	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist_superuser")
-
-	#------------------------------
-	# Running a specific artist test for member
-	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist_music_member.ArtistMemberTests.test_retrieve_artist_allowed")
-
-	#------------------------------
-	# Running all artist tests for member
-	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist_music_member")
-
-
-
-	#------------------------------
-	# Running a specific album test for superuser
-	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album_superuser.AlbumSuperuserTests.test_update_album_with_title_field_whitespace")
-
-	#------------------------------
-	# Running all album tests for superuser
-	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album_superuser")
-
-	#------------------------------
-	# Running a specific album test for member
-	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album_music_member.AlbumMemberTests.test_list_albums_allowed")
-
-	#------------------------------
-	# Running all album tests for member
-	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album_music_member")
+	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation")
 
 
 
 
 	#------------------------------
-	# Running a specific hymn test for superuser
+	# Running a specific artist test
 	# 
-	docker_run("music", "python manage.py test music.tests.hymn.test_hymn_superuser.HymnSuperuserTests.test_retrieve_archived_hymn_allowed")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist.ArtistTests.test_delete_artist_that_has_no_albums_succeeds")
 
 	#------------------------------
-	# Running all hymn tests for superuser
+	# Running all artist tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn_superuser")
+	# docker_run("music", "python manage.py test music.tests.artist.test_artist")
+
+
 
 	#------------------------------
-	# Running a specific hymn test for member
+	# Running a specific album test
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn_music_member.HymnMemberTests.test_list_hymns_allowed")
+	# docker_run("music", "python manage.py test music.tests.album.test_album.AlbumTests.test_update_album_with_category_field_from_album_to_single_fails_if_album_has_multiple_hymns")
 
 	#------------------------------
-	# Running all hymn tests for member
+	# Running all album tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn_music_member")
+	# docker_run("music", "python manage.py test music.tests.album.test_album")
 
+
+
+	# ------------------------------
+	# HYMN TESTS
+	#
+
+	#------------------------------
+	# Running a specific hymn test
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn.HymnTests.test_retrieve_album_does_not_include_deleted_hymns")
+
+	#------------------------------
+	# Running all hymn tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn")
+
+
+	# ------------------------------
+	# TOPIC TESTS
+	#
+
+	#------------------------------
+	# Running a specific topic test
+	# 
+	# docker_run("music", "python manage.py test music.tests.topic.test_topic.TopicTests.test_retrieve_archived_topic_does_not_find_active_topic")
+
+	#------------------------------
+	# Running all topic tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.topic.test_topic")
+
+
+
+	# ------------------------------
+	# HYMN-TOPIC TESTS
+	#
+
+	#------------------------------
+	# Running a specific topic test
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic.HymnTopicTests.test_delete_hymn_topic_already_deleted")
+
+	#------------------------------
+	# Running all topic tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic")
+
+
+
+	# ------------------------------
+	# PLAYLIST TESTS
+	#
+
+	#------------------------------
+	# Running a specific playlist test
+	# 
+	# docker_run("music", "python manage.py test music.tests.playlist.test_playlist.PlaylistTests.test_update_playlist_cannot_update_public_playlist_of_another_user")
+
+	#------------------------------
+	# Running all playlist tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.playlist.test_playlist")
+
+
+
+	# ------------------------------
+	# PLAYLIST HYMN TESTS
+	#
+
+	#------------------------------
+	# Running a specific playlist hymn test
+	# 
+	# docker_run("music", "python manage.py test music.tests.playlist_hymn.test_playlist_hymn.PlaylistHymnTests.test_delete_playlist_hymn_same_playlist_hymn_multiple_delete")
+
+	#------------------------------
+	# Running all playlist hymn tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.playlist_hymn.test_playlist_hymn")
+
+
+
+	# ------------------------------
+	# HYMN LYRIC TESTS
+	#
+
+	#------------------------------
+	# Running a specific hymn lyric test
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn_lyric.test_hymn_lyric.HymnLyricTests.test_create_hymn_lyric_version_field_missing")
+
+	#------------------------------
+	# Running all hymn lyric tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.hymn_lyric.test_hymn_lyric")
 
 
 
 	#------------------------------
 	# Running ALL tests
 	# 
-	# docker_run("music", "python manage.py test music.tests")
+	docker_run("music", "python manage.py test music.tests")
 
 COMMANDS = {
 	"docker.build": docker_build,
