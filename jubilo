@@ -341,9 +341,8 @@ def dev_setup(service_name_list=None):
 	for topic in list:
 		print(f"Topic ({topic['id']}): {topic['topic_key']}")
 
-def dev_test(service_name_list=None):
-	print("Running development tests...")
-
+def dev_test_jubilo_auth():
+	print("Running tests for jubilo_auth service")
 	#------------------------------
 	# Running invitation tests for auth service
 	# 
@@ -351,6 +350,8 @@ def dev_test(service_name_list=None):
 
 
 
+def dev_test_jubilo_music():
+	print("Running tests for jubilo_music service")
 
 	#------------------------------
 	# Running a specific artist test
@@ -484,6 +485,18 @@ def dev_test(service_name_list=None):
 	# Running all search tests
 	# 
 	# docker_run("music", "python manage.py test music.tests.search.test_search")
+
+
+def dev_test(service_name_list=None):
+	print("Running development tests...")
+
+	dev_test_jubilo_auth()
+
+
+	# dev_test_jubilo_music()
+
+
+
 
 
 
