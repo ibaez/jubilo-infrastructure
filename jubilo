@@ -21,6 +21,19 @@ from services.docker import (
 import time
 import requests
 from pathlib import Path
+import os
+import shutil
+
+def setup_meilisearch_data_directory():
+	print("setup_meilisearch_data_directory - START")
+	path = "../meili_data"
+	
+	if os.path.exists(path):
+		shutil.rmtree(path)
+
+	os.makedirs(path, exist_ok=True)
+
+	print("setup_meilisearch_data_directory - END")
 
 def dev_setup(service_name_list=None):
 	print("Setting up development environment...")
@@ -263,6 +276,11 @@ def dev_setup(service_name_list=None):
 
 	print(f"Acquired access token for auth service member: {member_access_token}")
 
+	# ------------------------------
+	# Clear and setup jubilo_music service search index
+	# 
+	setup_meilisearch_data_directory()
+
 	docker_start(["meilisearch"])
 	docker_start(["music"])
 
@@ -272,7 +290,7 @@ def dev_setup(service_name_list=None):
 	
 	
 
-	time.sleep(5)
+	time.sleep(2)
 
 	url = f"https://{docker_host_ip}/api/music/hello"
 
@@ -453,10 +471,26 @@ def dev_test(service_name_list=None):
 
 
 
+	# ------------------------------
+	# SEARCH TESTS
+	#
+
+	#------------------------------
+	# Running a specific search test
+	# 
+	docker_run("music", "python manage.py test music.tests.search.test_search.SearchTests.test_search_for_artist_by_name")
+
+	#------------------------------
+	# Running all search tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.search.test_search")
+
+
+
 	#------------------------------
 	# Running ALL tests
 	# 
-	docker_run("music", "python manage.py test music.tests")
+	# docker_run("music", "python manage.py test music.tests")
 
 COMMANDS = {
 	"docker.build": docker_build,
