@@ -38,6 +38,11 @@ def setup_meilisearch_data_directory():
 def dev_setup(service_name_list=None):
 	print("Setting up development environment...")
 
+	SUPERUSER_EMAIL = "su1@gmail.com"
+	SUPERUSER_PASSWORD = "su1"
+	IBG_USER_EMAIL = "ib@gmail.com"
+	IBG_USER_PASSWORD = "testpassword"
+
 	docker_down([])
 
 	docker_host_ip = docker_get_host_ip()
@@ -88,8 +93,8 @@ def dev_setup(service_name_list=None):
 	#
 	auth_service_tokens = docker_generate_service_tokens()
 
-	auth_service_tokens['DJANGO_SUPERUSER_EMAIL'] = 'su1@iece.app'
-	auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'] = 'su1'
+	auth_service_tokens['DJANGO_SUPERUSER_EMAIL'] = SUPERUSER_EMAIL
+	auth_service_tokens['DJANGO_SUPERUSER_PASSWORD'] = SUPERUSER_PASSWORD
 	auth_service_tokens['DJANGO_SUPERUSER_FIRST_NAME'] = 'su1'
 	auth_service_tokens['DJANGO_SUPERUSER_LAST_NAME'] = 'su1'
 
@@ -159,8 +164,8 @@ def dev_setup(service_name_list=None):
 			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
 				data={
 					"grant_type": "password",
-					"username": "su1@iece.app",
-					"password": "su1",
+					"username": SUPERUSER_EMAIL,
+					"password": SUPERUSER_PASSWORD,
 					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
 					"scope": "music"
 				},
@@ -187,7 +192,7 @@ def dev_setup(service_name_list=None):
 	try:
 		response = requests.post(f"https://{docker_host_ip}/auth/invitation",
 			json={
-				"email": "ib@gmail.com",
+				"email": IBG_USER_EMAIL,
 				"first_name": "Ismael",
 				"last_name": "Baez",
 				"roles": [
@@ -238,7 +243,7 @@ def dev_setup(service_name_list=None):
 		response = requests.post(f"https://{docker_host_ip}/auth/invitation/accept",
 			data={
 				"code": invitation_code,
-				"password": "testpassword"
+				"password": IBG_USER_PASSWORD
 			},
 			verify=CA_CERT,
 			timeout=5)
@@ -258,8 +263,8 @@ def dev_setup(service_name_list=None):
 		response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
 			data={
 				"grant_type": "password",
-				"username": "ib@gmail.com",
-				"password": "testpassword",
+				"username": IBG_USER_EMAIL,
+				"password": IBG_USER_PASSWORD,
 				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
 				"scope": "music"
 			},
