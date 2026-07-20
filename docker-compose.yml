@@ -12,6 +12,7 @@ services:
       - ./certs:/etc/nginx/certs
     depends_on:
       - iece_auth
+      - jubilo_music
     networks:
       - iece_network
 

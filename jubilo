@@ -161,7 +161,8 @@ def dev_setup(service_name_list=None):
 					"grant_type": "password",
 					"username": "su1@iece.app",
 					"password": "su1",
-					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
+					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
+					"scope": "music"
 				},
 				verify=CA_CERT,
 				timeout=5)
@@ -259,7 +260,8 @@ def dev_setup(service_name_list=None):
 				"grant_type": "password",
 				"username": "ib@gmail.com",
 				"password": "testpassword",
-				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn'
+				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
+				"scope": "music"
 			},
 			verify=CA_CERT,
 			timeout=5)
@@ -284,13 +286,7 @@ def dev_setup(service_name_list=None):
 	docker_start(["meilisearch"])
 	docker_start(["music"])
 
-	time.sleep(2)
-
 	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(superuser_access_token))
-	
-	
-
-	time.sleep(2)
 
 	url = f"https://{docker_host_ip}/api/music/hello"
 
@@ -343,11 +339,21 @@ def dev_setup(service_name_list=None):
 
 def dev_test_jubilo_auth():
 	print("Running tests for jubilo_auth service")
+
 	#------------------------------
-	# Running invitation tests for auth service
+	# Running a specific invitation test for auth service
+	# 
+	docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
+
+	#------------------------------
+	# Running all invitation tests for auth service
 	# 
 	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation")
 
+	#------------------------------
+	# Running all tests
+	# 
+	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.test_general.PKCEEnforcementTests.test_token_exchange_fails_without_verifier")
 
 
 def dev_test_jubilo_music():
