@@ -1,5 +1,5 @@
 # ------------------------------
-# IECE_GATEWAY_IP comes from .env file
+# JUBILO_GATEWAY_IP comes from .env file
 # that exists in same directory as this script
 # 
 services:

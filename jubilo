@@ -348,7 +348,7 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running a specific invitation test for auth service
 	# 
-	docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
+	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
 
 	#------------------------------
 	# Running all invitation tests for auth service
@@ -358,7 +358,7 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running all tests
 	# 
-	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.test_general.PKCEEnforcementTests.test_token_exchange_fails_without_verifier")
+	docker_run("auth", "python manage.py test iece_auth.accounts.tests")
 
 
 def dev_test_jubilo_music():
@@ -424,12 +424,12 @@ def dev_test_jubilo_music():
 	#
 
 	#------------------------------
-	# Running a specific topic test
+	# Running a specific hymn topic test
 	# 
 	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic.HymnTopicTests.test_delete_hymn_topic_already_deleted")
 
 	#------------------------------
-	# Running all topic tests
+	# Running all hymn topic tests
 	# 
 	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic")
 
@@ -490,7 +490,7 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific search test
 	# 
-	docker_run("music", "python manage.py test music.tests.search.test_search.SearchTests.test_search_for_artist_by_name")
+	# docker_run("music", "python manage.py test music.tests.search.test_search.SearchTests.test_search_for_artist_by_name")
 
 	#------------------------------
 	# Running all search tests
@@ -498,13 +498,18 @@ def dev_test_jubilo_music():
 	# docker_run("music", "python manage.py test music.tests.search.test_search")
 
 
+	#------------------------------
+	# Running ALL tests
+	# 
+	docker_run("music", "python manage.py test music.tests")
+
 def dev_test(service_name_list=None):
 	print("Running development tests...")
 
-	dev_test_jubilo_auth()
+	# dev_test_jubilo_auth()
 
 
-	# dev_test_jubilo_music()
+	dev_test_jubilo_music()
 
 
 
