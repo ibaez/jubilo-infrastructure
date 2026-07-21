@@ -6,7 +6,7 @@ import string
 
 def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-auth/.env", "w") as f:
-		f.write(f"DEBUG=True\n")
+		# f.write(f"DEBUG=True\n")
 		f.write(f"SECRET_KEY={tokens['auth']['secret_key']}\n")
 		f.write(f"DJANGO_SUPERUSER_EMAIL={tokens['auth']['DJANGO_SUPERUSER_EMAIL']}\n")
 		f.write(f"DJANGO_SUPERUSER_PASSWORD={tokens['auth']['DJANGO_SUPERUSER_PASSWORD']}\n")
@@ -25,7 +25,7 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 
 def docker_generate_music_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-music/.env", "w") as f:
-		f.write(f"DEBUG=True\n")
+		# f.write(f"DEBUG=True\n")
 		f.write(f"SECRET_KEY={tokens['secret_key']}\n")
 		f.write(f"MUSIC_SERVICE_BASE_URL=https://{docker_host_ip}/api/music\n")
 		f.write(f"AUTH_SERVICE_INTROSPECTION_URL=https://{docker_host_ip}/auth/o/introspect/\n")
