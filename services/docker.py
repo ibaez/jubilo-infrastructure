@@ -1,10 +1,13 @@
 import os
 from core.shell import run
 from core.service_registry import SERVICES, resolve_services
-from secrets import token_urlsafe
+from secrets import token_urlsafe, choice
+import string
 
 def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-auth/.env", "w") as f:
+		f.write(f"DEBUG=True\n")
+		f.write(f"SECRET_KEY={tokens['auth']['secret_key']}\n")
 		f.write(f"DJANGO_SUPERUSER_EMAIL={tokens['auth']['DJANGO_SUPERUSER_EMAIL']}\n")
 		f.write(f"DJANGO_SUPERUSER_PASSWORD={tokens['auth']['DJANGO_SUPERUSER_PASSWORD']}\n")
 		f.write(f"DJANGO_SUPERUSER_FIRST_NAME={tokens['auth']['DJANGO_SUPERUSER_FIRST_NAME']}\n")
@@ -22,6 +25,8 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 
 def docker_generate_music_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-music/.env", "w") as f:
+		f.write(f"DEBUG=True\n")
+		f.write(f"SECRET_KEY={tokens['secret_key']}\n")
 		f.write(f"MUSIC_SERVICE_BASE_URL=https://{docker_host_ip}/api/music\n")
 		f.write(f"AUTH_SERVICE_INTROSPECTION_URL=https://{docker_host_ip}/auth/o/introspect/\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['client_id']}\n")
@@ -51,12 +56,17 @@ def generate_token(length):
 		# 
 		if not token.startswith("-"):
 			return token[:length]
+		
+def generate_secret(length):
+	chars = string.ascii_letters + string.digits + string.punctuation
+	secret_key = ''.join(choice(chars) for _ in range(length))
+	return secret_key
 
 def docker_generate_service_tokens():
-
 	return {
 		"client_id": generate_token(32),
-		"client_secret": generate_token(96)
+		"client_secret": generate_token(96),
+		"secret_key": generate_secret(50),
 	}
 
 def docker_generate_jubilo_infrastructure_env_files(ip):
