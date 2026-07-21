@@ -167,7 +167,7 @@ def dev_setup(service_name_list=None):
 					"username": SUPERUSER_EMAIL,
 					"password": SUPERUSER_PASSWORD,
 					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
-					"scope": "music"
+					"scope": "auth music"
 				},
 				verify=CA_CERT,
 				timeout=5)
@@ -266,7 +266,7 @@ def dev_setup(service_name_list=None):
 				"username": IBG_USER_EMAIL,
 				"password": IBG_USER_PASSWORD,
 				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
-				"scope": "music"
+				"scope": "auth music"
 			},
 			verify=CA_CERT,
 			timeout=5)
