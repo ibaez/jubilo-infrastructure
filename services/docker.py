@@ -4,7 +4,7 @@ from core.service_registry import SERVICES, resolve_services
 from secrets import token_urlsafe
 
 def docker_generate_auth_service_env_file(docker_host_ip, tokens):
-	with open("../iece-auth/.env", "w") as f:
+	with open("../jubilo-auth/.env", "w") as f:
 		f.write(f"DJANGO_SUPERUSER_EMAIL={tokens['auth']['DJANGO_SUPERUSER_EMAIL']}\n")
 		f.write(f"DJANGO_SUPERUSER_PASSWORD={tokens['auth']['DJANGO_SUPERUSER_PASSWORD']}\n")
 		f.write(f"DJANGO_SUPERUSER_FIRST_NAME={tokens['auth']['DJANGO_SUPERUSER_FIRST_NAME']}\n")

@@ -1,6 +1,6 @@
 SERVICES = {
 	"gateway"    : "iece_gateway",
-	"auth"       : "iece_auth",
+	"auth"       : "jubilo_auth",
 	"church"     : "iece_church",
 	"music"      : "jubilo_music",
 	"meilisearch": "jubilo_meilisearch"

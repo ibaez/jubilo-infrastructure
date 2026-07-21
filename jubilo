@@ -348,17 +348,17 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running a specific invitation test for auth service
 	# 
-	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
+	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
 
 	#------------------------------
 	# Running all invitation tests for auth service
 	# 
-	# docker_run("auth", "python manage.py test iece_auth.accounts.tests.invitation.test_invitation")
+	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation")
 
 	#------------------------------
 	# Running all tests
 	# 
-	docker_run("auth", "python manage.py test iece_auth.accounts.tests")
+	docker_run("auth", "python manage.py test jubilo_auth.accounts.tests")
 
 
 def dev_test_jubilo_music():
