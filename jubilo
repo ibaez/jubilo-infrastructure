@@ -293,19 +293,6 @@ def dev_setup(service_name_list=None):
 
 	docker_run("music", "python -m scripts.music_dev_setup --access-token {}".format(superuser_access_token))
 
-	url = f"https://{docker_host_ip}/api/music/hello"
-
-	print(f"Making request to {url}")
-
-	response = requests.get(url,
-		headers={
-			"Authorization": f"Bearer {superuser_access_token}"
-		},
-		verify=CA_CERT,
-		timeout=5)
-
-	print(f"Hello request to music service response: {response.status_code} - {response.text}")
-
 	url = f"https://{docker_host_ip}/api/music/artist"
 
 	print(f"Making request to {url}")

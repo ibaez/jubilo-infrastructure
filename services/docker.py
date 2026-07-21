@@ -58,7 +58,7 @@ def generate_token(length):
 			return token[:length]
 		
 def generate_secret(length):
-	chars = string.ascii_letters + string.digits + string.punctuation
+	chars = string.ascii_letters + string.digits
 	secret_key = ''.join(choice(chars) for _ in range(length))
 	return secret_key
 
@@ -66,7 +66,7 @@ def docker_generate_service_tokens():
 	return {
 		"client_id": generate_token(32),
 		"client_secret": generate_token(96),
-		"secret_key": generate_secret(50),
+		"secret_key": generate_secret(100),
 	}
 
 def docker_generate_jubilo_infrastructure_env_files(ip):
