@@ -1,5 +1,5 @@
 SERVICES = {
-	"gateway"    : "iece_gateway",
+	"gateway"    : "jubilo_gateway",
 	"auth"       : "jubilo_auth",
 	"church"     : "iece_church",
 	"music"      : "jubilo_music",

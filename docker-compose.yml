@@ -3,12 +3,12 @@
 # that exists in same directory as this script
 # 
 services:
-  iece_gateway:
-    build: ../iece-gateway
+  jubilo_gateway:
+    build: ../jubilo-gateway
     ports:
       - "443:443"
     volumes:
-      - ../iece-gateway/default.conf:/etc/nginx/conf.d/default.conf
+      - ../jubilo-gateway/default.conf:/etc/nginx/conf.d/default.conf
       - ./certs:/etc/nginx/certs
     depends_on:
       - jubilo_auth
@@ -116,6 +116,6 @@ services:
   #   depends_on:
   #     - jubilo_auth
   #     - iece_church
-  #     - iece_gateway
+  #     - jubilo_gateway
 networks:
   iece_network:
