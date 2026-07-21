@@ -14,7 +14,18 @@ services:
       - jubilo_auth
       - jubilo_music
     networks:
-      - iece_network
+      - jubilo_network
+
+  jubilo_redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s    
+    networks:
+      - jubilo_network
 
   jubilo_auth_db:
     image: postgres:16
@@ -30,7 +41,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - iece_network
+      - jubilo_network
 
   jubilo_auth:
     env_file:
@@ -45,8 +56,10 @@ services:
     depends_on:
       jubilo_auth_db:
         condition: service_healthy
+      jubilo_redis:
+        condition: service_healthy
     networks:
-      - iece_network
+      - jubilo_network
 
   iece_church:
     env_file:
@@ -61,7 +74,7 @@ services:
     expose:
       - "8001"
     networks:
-      - iece_network
+      - jubilo_network
 
   jubilo_meilisearch:
     env_file:
@@ -72,7 +85,7 @@ services:
     ports:
       - "7700:7700"
     networks:
-      - iece_network
+      - jubilo_network
 
   jubilo_music_db:
     image: postgres:16
@@ -88,7 +101,7 @@ services:
     ports:
       - "5433:5432"
     networks:
-      - iece_network
+      - jubilo_network
 
   jubilo_music:
     env_file:
@@ -103,10 +116,12 @@ services:
         condition: service_healthy
       jubilo_auth:
         condition: service_started
+      jubilo_redis:
+        condition: service_healthy
     expose:
       - "8002"
     networks:
-      - iece_network
+      - jubilo_network
 
   # iece_report:
   #   build: ./iece_report
@@ -114,7 +129,7 @@ services:
   #     - ./iece_report/.env
   #   image: iece_report
   #   networks:
-  #     - iece_network
+  #     - jubilo_network
   #   volumes:
   #     - ./iece_report/output:/app/output
   #   depends_on:
@@ -122,4 +137,4 @@ services:
   #     - iece_church
   #     - jubilo_gateway
 networks:
-  iece_network:
+  jubilo_network:
