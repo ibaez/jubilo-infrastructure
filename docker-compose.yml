@@ -16,6 +16,20 @@ services:
     networks:
       - iece_network
 
+  jubilo_auth_db:
+    image: postgres:16
+    environment:
+        POSTGRES_DB: jubilo_auth
+        POSTGRES_USER: jubilo_auth_user
+        POSTGRES_PASSWORD: jubilo_auth_password
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U jubilo_auth_user -d jubilo_auth || exit 1"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+    networks:
+      - iece_network
+
   jubilo_auth:
     env_file:
       - ../jubilo-auth/.env
@@ -26,6 +40,9 @@ services:
       - ../jubilo-auth:/app
     expose:
       - "8000"
+    depends_on:
+      jubilo_auth_db:
+        condition: service_healthy
     networks:
       - iece_network
 
@@ -61,10 +78,8 @@ services:
         POSTGRES_DB: jubilo_music
         POSTGRES_USER: jubilo_music_user
         POSTGRES_PASSWORD: jubilo_music_password
-    ports:
-      - "5432:5432"
     healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U jubilo_music -d jubilo_music || exit 1"]
+        test: ["CMD-SHELL", "pg_isready -U jubilo_music_user -d jubilo_music || exit 1"]
         interval: 5s
         timeout: 5s
         retries: 5
