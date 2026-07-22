@@ -1,7 +1,7 @@
 SERVICES = {
 	"gateway"    : "jubilo_gateway",
 	"auth"       : "jubilo_auth",
-	"church"     : "iece_church",
+	"church"     : "jubilo_church",
 	"music"      : "jubilo_music",
 	"meilisearch": "jubilo_meilisearch"
 }

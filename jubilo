@@ -166,7 +166,7 @@ def dev_setup(service_name_list=None):
 					"grant_type": "password",
 					"username": SUPERUSER_EMAIL,
 					"password": SUPERUSER_PASSWORD,
-					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
+					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use jubilo_postman client_id
 					"scope": "auth music"
 				},
 				verify=CA_CERT,
@@ -265,7 +265,7 @@ def dev_setup(service_name_list=None):
 				"grant_type": "password",
 				"username": IBG_USER_EMAIL,
 				"password": IBG_USER_PASSWORD,
-				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use iece_postman client_id
+				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use jubilo_postman client_id
 				"scope": "auth music"
 			},
 			verify=CA_CERT,
