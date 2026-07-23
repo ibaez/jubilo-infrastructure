@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import re
 from services.docker import (
 	docker_generate_service_tokens,
 	docker_generate_jubilo_infrastructure_env_files,
@@ -216,34 +217,58 @@ def dev_setup(service_name_list=None):
 		return
 
 	#------------------------------
-	# Listing invitations in order to get the member user's invitation code which is necessary for accepting the invitation and creating the member user.
+	# Read invitation email from MailPit in order to get the member user's invitation code which is necessary for validating and accepting the invitation which creates the member user.
 	# 
 	invitation_code = None
+
+	response = requests.get("http://localhost:8025/api/v1/messages")
+	email_messages = response.json().get("messages", [])
+	latest = next(m for m in email_messages if m["To"][0]["Address"] == IBG_USER_EMAIL)
+
+	# Snippet is often enough for a short code, but fetch full message for reliability
+	detail = requests.get(f"http://localhost:8025/api/v1/message/{latest['ID']}")
+	body = detail.json()["Text"]  # or ["HTML"], confirm exact key from a print
+
+	invitation_code = re.search(r'\b\d{6}\b', body).group()
+
+	#------------------------------
+	# Validate invitation for auth service member user.
+	# 
+	invitation_token = None
 	try:
-		response = requests.get(f"https://{docker_host_ip}/auth/invitation",
-			headers={
-				"Authorization": f"Bearer {superuser_access_token}"
+		response = requests.post(f"https://{docker_host_ip}/auth/invitation/validate",
+			data={
+				"email": IBG_USER_EMAIL,
+				"invitation_code": invitation_code,
 			},
 			verify=CA_CERT,
 			timeout=5)
 		
 		response.raise_for_status()
-		invitation_code = response.json()[0]['code']
-		print(f"Invitation code for member user: {invitation_code}")
+
+		json_data = response.json()
+		if "invitation_token" not in json_data:
+			raise ValueError(f"Response JSON does not contain 'invitation_token': {json_data}")
+		invitation_token = json_data.get("invitation_token")
 	except Exception as e:
-		print(f"Failed to list invitations. Error: {e}")
+		print(f"Failed to accept invitation. Error: {e}")
 		print(f"Response status code: {response.status_code}")
 		print(f"Response text: {response.text}")
 		return
 
+	if not invitation_token:
+		print("Failed to retrieve invitation token.")
+		return
+
+
 	#------------------------------
-	# Accepting invitation for auth service member user.
+	# Accept invitation for auth service member user.
 	# 
 	try:
 		response = requests.post(f"https://{docker_host_ip}/auth/invitation/accept",
 			data={
-				"code": invitation_code,
-				"password": IBG_USER_PASSWORD
+				"invitation_token": invitation_token,
+				"password": IBG_USER_PASSWORD,
 			},
 			verify=CA_CERT,
 			timeout=5)
@@ -254,6 +279,7 @@ def dev_setup(service_name_list=None):
 		print(f"Response status code: {response.status_code}")
 		print(f"Response text: {response.text}")
 		return
+
 
 	#------------------------------
 	# Acquiring access token for auth service member user.
