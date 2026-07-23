@@ -16,6 +16,20 @@ services:
     networks:
       - jubilo_network
 
+  jubilo_mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI + API
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/api/v1/info"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - jubilo_network
+
   jubilo_redis:
     image: redis:7-alpine
     healthcheck:
@@ -57,6 +71,8 @@ services:
       jubilo_auth_db:
         condition: service_healthy
       jubilo_redis:
+        condition: service_healthy
+      jubilo_mailpit:
         condition: service_healthy
     networks:
       - jubilo_network
