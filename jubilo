@@ -361,7 +361,7 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running a specific invitation test for auth service
 	# 
-	docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_invitee_cannot_accept_invitation_multiple_times")
+	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_invitee_can_accept_invitation_made_by_music_manager")
 
 	#------------------------------
 	# Running all invitation tests for auth service
@@ -372,7 +372,7 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running settings tests for auth service
 	# 
-	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.test_settings")
+	docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.test_settings")
 
 
 
