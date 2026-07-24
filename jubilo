@@ -361,17 +361,25 @@ def dev_test_jubilo_auth():
 	#------------------------------
 	# Running a specific invitation test for auth service
 	# 
-	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_token_exchange_succeeds_with_correct_verifier")
+	docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation.InvitationTests.test_invitee_cannot_accept_invitation_multiple_times")
 
 	#------------------------------
 	# Running all invitation tests for auth service
 	# 
 	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.invitation.test_invitation")
 
+
+	#------------------------------
+	# Running settings tests for auth service
+	# 
+	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests.test_settings")
+
+
+
 	#------------------------------
 	# Running all tests
 	# 
-	docker_run("auth", "python manage.py test jubilo_auth.accounts.tests")
+	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests")
 
 
 def dev_test_jubilo_music():
@@ -511,18 +519,34 @@ def dev_test_jubilo_music():
 	# docker_run("music", "python manage.py test music.tests.search.test_search")
 
 
+
+	# ------------------------------
+	# Miscellaneous TESTS
+	#
+
+	#------------------------------
+	# Running a specific miscellaneous test
+	# 
+	# docker_run("music", "python manage.py test music.tests.misc.test_misc.MiscTests.test_throttling_across_different_endpoints")
+
+	#------------------------------
+	# Running all miscellaneous tests
+	# 
+	# docker_run("music", "python manage.py test music.tests.misc.test_misc")
+
+
 	#------------------------------
 	# Running ALL tests
 	# 
-	docker_run("music", "python manage.py test music.tests")
+	# docker_run("music", "python manage.py test music.tests")
 
 def dev_test(service_name_list=None):
 	print("Running development tests...")
 
-	# dev_test_jubilo_auth()
+	dev_test_jubilo_auth()
 
 
-	dev_test_jubilo_music()
+	# dev_test_jubilo_music()
 
 
 

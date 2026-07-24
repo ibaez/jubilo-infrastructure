@@ -75,7 +75,9 @@ services:
       jubilo_mailpit:
         condition: service_healthy
     networks:
-      - jubilo_network
+      jubilo_network:
+          aliases:
+            - jubilo-auth # Because django does not allow underscores in hostnames (ALLOWED_HOSTS), we need to add an alias for the service name with a hyphen instead of an underscore.
 
   iece_church:
     env_file:
