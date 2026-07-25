@@ -32,7 +32,7 @@ def docker_generate_music_service_env_file(docker_host_ip, tokens):
 		# f.write(f"DEBUG=True\n")
 		f.write(f"SECRET_KEY={tokens['secret_key']}\n")
 		f.write(f"MUSIC_SERVICE_BASE_URL=https://{docker_host_ip}/api/music\n")
-		f.write(f"AUTH_SERVICE_INTROSPECTION_URL=http://jubilo-auth:8000/auth/o/introspect/\n")
+		f.write(f"AUTH_SERVICE_INTROSPECTION_URL=http://jubilo-auth:8000/auth/o/introspect\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['client_id']}\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['client_secret']}\n")
 		f.write(f"DATABASE_URL=postgres://jubilo_music_user:jubilo_music_password@jubilo_music_db:5432/jubilo_music\n")
@@ -48,8 +48,8 @@ def docker_generate_church_service_env_file(docker_host_ip, tokens):
 def docker_generate_jubilo_mobile_env_file(docker_host_ip, tokens):
 	with open("../jubilo-mobile/.env", "w") as f:
 		f.write(f"JUBILO_GATEWAY_IP={docker_host_ip}\n")
-		f.write(f"JUBILO_CHURCH_CLIENT_ID={tokens['client_id']}\n")
-		f.write(f"JUBILO_CHURCH_CLIENT_SECRET={tokens['client_secret']}\n")
+		f.write(f"EXPO_PUBLIC_JUBILO_AUTH_BASE_URL=https://{docker_host_ip}/auth\n")
+		f.write(f"EXPO_PUBLIC_JUBILO_MOBILE_CLIENT_ID={tokens['client_id']}\n")
 
 def generate_token(length):
 	while True:

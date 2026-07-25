@@ -162,7 +162,7 @@ def dev_setup(service_name_list=None):
 
 	while not superuser_access_token:
 		try:
-			response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
+			response = requests.post(f"https://{docker_host_ip}/auth/o/token",
 				data={
 					"grant_type": "password",
 					"username": SUPERUSER_EMAIL,
@@ -286,7 +286,7 @@ def dev_setup(service_name_list=None):
 	# 
 	member_access_token = None
 	try:
-		response = requests.post(f"https://{docker_host_ip}/auth/o/token/",
+		response = requests.post(f"https://{docker_host_ip}/auth/o/token",
 			data={
 				"grant_type": "password",
 				"username": IBG_USER_EMAIL,
