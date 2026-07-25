@@ -50,6 +50,7 @@ def docker_generate_jubilo_mobile_env_file(docker_host_ip, tokens):
 		f.write(f"JUBILO_GATEWAY_IP={docker_host_ip}\n")
 		f.write(f"EXPO_PUBLIC_JUBILO_AUTH_BASE_URL=https://{docker_host_ip}/auth\n")
 		f.write(f"EXPO_PUBLIC_JUBILO_MOBILE_CLIENT_ID={tokens['client_id']}\n")
+		f.write(f"EXPO_PUBLIC_JUBILO_MUSIC_BASE_URL=https://{docker_host_ip}/api/music\n")
 
 def generate_token(length):
 	while True:
