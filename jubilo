@@ -377,7 +377,7 @@ def dev_test_jubilo_auth():
 
 
 	#------------------------------
-	# Running all tests
+	# Running all jubilo_auth tests
 	# 
 	# docker_run("auth", "python manage.py test jubilo_auth.accounts.tests")
 
@@ -536,17 +536,17 @@ def dev_test_jubilo_music():
 
 
 	#------------------------------
-	# Running ALL tests
+	# Running ALL jubilo_music tests
 	# 
-	# docker_run("music", "python manage.py test music.tests")
+	docker_run("music", "python manage.py test music.tests")
 
 def dev_test(service_name_list=None):
 	print("Running development tests...")
 
-	dev_test_jubilo_auth()
+	# dev_test_jubilo_auth()
 
 
-	# dev_test_jubilo_music()
+	dev_test_jubilo_music()
 
 
 
