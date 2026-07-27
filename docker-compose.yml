@@ -99,7 +99,7 @@ services:
       - ../jubilo-music/.env
     image: getmeili/meilisearch:v1.10
     volumes:
-      - ../jubilo-music/meili_data:/meili_data
+      - ../meili_data:/meili_data
     ports:
       - "7700:7700"
     networks:
