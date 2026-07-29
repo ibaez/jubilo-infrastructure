@@ -89,6 +89,18 @@ def dev_setup(service_name_list=None):
 
 	docker_generate_jubilo_mobile_env_file(docker_host_ip, jubilo_mobile_tokens)
 
+
+	#------------------------------
+	# JUBILO POSTMAN SERVICE
+	#
+	jubilo_postman_tokens = docker_generate_service_tokens()
+
+	print(f"JUBILO POSTMAN Service:")
+	print(f"  Client ID     : {jubilo_postman_tokens['client_id']}")
+	print(f"  Client Secret : {jubilo_postman_tokens['client_secret']}")
+
+
+
 	#------------------------------
 	# AUTH SERVICE
 	#
@@ -112,6 +124,7 @@ def dev_setup(service_name_list=None):
 		"church": church_service_tokens,
 		"jubilo_mobile": jubilo_mobile_tokens,
 		"jubilo_music": jubilo_music_service_tokens,
+		"jubilo_postman": jubilo_postman_tokens
 	})
 
 	docker_build([])
@@ -167,7 +180,7 @@ def dev_setup(service_name_list=None):
 					"grant_type": "password",
 					"username": SUPERUSER_EMAIL,
 					"password": SUPERUSER_PASSWORD,
-					"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use jubilo_postman client_id
+					"client_id": jubilo_postman_tokens['client_id'],
 					"scope": "auth music"
 				},
 				verify=CA_CERT,
@@ -291,7 +304,7 @@ def dev_setup(service_name_list=None):
 				"grant_type": "password",
 				"username": IBG_USER_EMAIL,
 				"password": IBG_USER_PASSWORD,
-				"client_id": 'lxxIzlAW1Ge0JXshCfpCYG0EGKGedhKSRnzpJDVn', # TODO: Don't use jubilo_postman client_id
+				"client_id": jubilo_postman_tokens['client_id'],
 				"scope": "auth music"
 			},
 			verify=CA_CERT,

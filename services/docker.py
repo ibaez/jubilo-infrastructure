@@ -26,6 +26,8 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 		f.write(f"JUBILO_MOBILE_CLIENT_SECRET={tokens['jubilo_mobile']['client_secret']}\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['jubilo_music']['client_id']}\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['jubilo_music']['client_secret']}\n")
+		f.write(f"JUBILO_POSTMAN_CLIENT_ID={tokens['jubilo_postman']['client_id']}\n")
+		f.write(f"JUBILO_POSTMAN_CLIENT_SECRET={tokens['jubilo_postman']['client_secret']}\n")
 
 def docker_generate_music_service_env_file(docker_host_ip, tokens):
 	with open("../jubilo-music/.env", "w") as f:

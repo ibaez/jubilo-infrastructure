@@ -79,20 +79,20 @@ services:
           aliases:
             - jubilo-auth # Because django does not allow underscores in hostnames (ALLOWED_HOSTS), we need to add an alias for the service name with a hyphen instead of an underscore.
 
-  iece_church:
-    env_file:
-      - ../iece-church/.env
-    build: ../iece-church
-    ports:
-      - "8001:8000"
-    volumes:
-      - ../iece-church:/app
-    depends_on:
-      - jubilo_auth
-    expose:
-      - "8001"
-    networks:
-      - jubilo_network
+  # jubilo_church:
+  #   env_file:
+  #     - ../iece-church/.env
+  #   build: ../iece-church
+  #   ports:
+  #     - "8001:8000"
+  #   volumes:
+  #     - ../iece-church:/app
+  #   depends_on:
+  #     - jubilo_auth
+  #   expose:
+  #     - "8001"
+  #   networks:
+  #     - jubilo_network
 
   jubilo_meilisearch:
     env_file:
@@ -141,18 +141,5 @@ services:
     networks:
       - jubilo_network
 
-  # iece_report:
-  #   build: ./iece_report
-  #   env_file:
-  #     - ./iece_report/.env
-  #   image: iece_report
-  #   networks:
-  #     - jubilo_network
-  #   volumes:
-  #     - ./iece_report/output:/app/output
-  #   depends_on:
-  #     - jubilo_auth
-  #     - iece_church
-  #     - jubilo_gateway
 networks:
   jubilo_network:
