@@ -16,6 +16,7 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 		f.write(f"JUBILO_AUTH_CLIENT_ID={tokens['auth']['client_id']}\n")
 		f.write(f"JUBILO_AUTH_CLIENT_SECRET={tokens['auth']['client_secret']}\n")
 		f.write(f"DATABASE_URL=postgres://jubilo_auth_user:jubilo_auth_password@jubilo_auth_db:5432/jubilo_auth\n")
+		f.write(f"REDIS_URL=redis://jubilo_redis:6379/0\n")
 		f.write(f"EMAIL_HOST=jubilo_mailpit\n")
 		f.write(f"EMAIL_PORT=1025\n")
 		f.write(f"EMAIL_USE_TLS=False\n")
@@ -38,6 +39,7 @@ def docker_generate_music_service_env_file(docker_host_ip, tokens):
 		f.write(f"JUBILO_MUSIC_CLIENT_ID={tokens['client_id']}\n")
 		f.write(f"JUBILO_MUSIC_CLIENT_SECRET={tokens['client_secret']}\n")
 		f.write(f"DATABASE_URL=postgres://jubilo_music_user:jubilo_music_password@jubilo_music_db:5432/jubilo_music\n")
+		f.write(f"REDIS_URL=redis://jubilo_redis:6379/1\n")
 		f.write(f"JUBILO_MEILISEARCH_MASTER_KEY={tokens['JUBILO_MEILISEARCH_MASTER_KEY']}\n")
 		f.write(f"JUBILO_MEILISEARCH_URL={tokens['JUBILO_MEILISEARCH_URL']}\n")
 
