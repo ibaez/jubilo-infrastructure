@@ -36,6 +36,18 @@ def setup_meilisearch_data_directory():
 
 	print("setup_meilisearch_data_directory - END")
 
+def prod_setup(service_name_list=None):
+	print("Running production-safe setup...")
+
+	# ------------------------------
+	# Unlike dev_setup(), this never tears down containers, never
+	# regenerates .env files/secrets, and never wipes migrations or the
+	# database. It only applies pending migrations and provisions the
+	# superuser/OAuth applications if they don't already exist -- see
+	# jubilo-auth/scripts/auth_prod_setup.py.
+	#
+	docker_run("auth", "python -m scripts.auth_prod_setup")
+
 def dev_setup(service_name_list=None):
 	print("Setting up development environment...")
 
@@ -577,6 +589,7 @@ COMMANDS = {
 	"docker.stop": docker_stop,
 	"docker.down": docker_down,
 	"dev.setup": dev_setup,
+	"prod.setup": prod_setup,
 	"dev.test": dev_test,
 }
 
