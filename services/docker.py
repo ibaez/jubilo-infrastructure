@@ -13,13 +13,15 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 		f.write(f"DJANGO_SUPERUSER_FIRST_NAME={tokens['auth']['DJANGO_SUPERUSER_FIRST_NAME']}\n")
 		f.write(f"DJANGO_SUPERUSER_LAST_NAME={tokens['auth']['DJANGO_SUPERUSER_LAST_NAME']}\n")
 		f.write(f"JUBILO_GATEWAY_IP={docker_host_ip}\n")
-		f.write(f"JUBILO_AUTH_CLIENT_ID={tokens['auth']['client_id']}\n")
-		f.write(f"JUBILO_AUTH_CLIENT_SECRET={tokens['auth']['client_secret']}\n")
 		f.write(f"DATABASE_URL=postgres://jubilo_auth_user:jubilo_auth_password@jubilo_auth_db:5432/jubilo_auth\n")
 		f.write(f"REDIS_URL=redis://jubilo_redis:6379/0\n")
 		f.write(f"EMAIL_HOST=jubilo_mailpit\n")
 		f.write(f"EMAIL_PORT=1025\n")
 		f.write(f"EMAIL_USE_TLS=False\n")
+		# Mailpit doesn't check credentials -- these just need to be non-empty
+		# to satisfy REQUIRED_ENV_VARS.
+		f.write(f"EMAIL_HOST_USER=mailpit\n")
+		f.write(f"EMAIL_HOST_PASSWORD=mailpit\n")
 		f.write(f"DEFAULT_FROM_EMAIL=invites@mijubilo.com\n")
 		f.write(f"JUBILO_CHURCH_CLIENT_ID={tokens['church']['client_id']}\n")
 		f.write(f"JUBILO_CHURCH_CLIENT_SECRET={tokens['church']['client_secret']}\n")

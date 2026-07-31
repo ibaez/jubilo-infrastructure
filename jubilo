@@ -124,8 +124,6 @@ def dev_setup(service_name_list=None):
 	auth_service_tokens['DJANGO_SUPERUSER_LAST_NAME'] = 'su1'
 
 	print(f"AUTH Service:")
-	print(f"  Client ID                   : {auth_service_tokens['client_id']}")
-	print(f"  Client Secret               : {auth_service_tokens['client_secret']}")
 	print(f"  DJANGO_SUPERUSER_EMAIL      : {auth_service_tokens['DJANGO_SUPERUSER_EMAIL']}")
 	print(f"  DJANGO_SUPERUSER_PASSWORD   : {auth_service_tokens['DJANGO_SUPERUSER_PASSWORD']}")
 	print(f"  DJANGO_SUPERUSER_FIRST_NAME : {auth_service_tokens['DJANGO_SUPERUSER_FIRST_NAME']}")
