@@ -79,6 +79,30 @@ services:
           aliases:
             - jubilo-auth # Because django does not allow underscores in hostnames (ALLOWED_HOSTS), we need to add an alias for the service name with a hyphen instead of an underscore.
 
+  # Same image/build as jubilo_auth -- only the start command differs
+  # (rqworker instead of gunicorn). This is what actually sends invitation
+  # and password-reset emails now; without it running, those jobs just sit
+  # queued in Redis and nothing ever gets emailed. Needs the same
+  # dependencies jubilo_auth has, for the same reasons: DB access (the
+  # jobs it runs query Invitation/AuthUser), Redis (the queue itself), and
+  # mailpit (what it actually sends through).
+  jubilo_auth_worker:
+    env_file:
+      - ../jubilo-auth/.env
+    build: ../jubilo-auth
+    volumes:
+      - ../jubilo-auth:/app
+    command: python manage.py rqworker default
+    depends_on:
+      jubilo_auth_db:
+        condition: service_healthy
+      jubilo_redis:
+        condition: service_healthy
+      jubilo_mailpit:
+        condition: service_healthy
+    networks:
+      - jubilo_network
+
   # jubilo_church:
   #   env_file:
   #     - ../iece-church/.env
