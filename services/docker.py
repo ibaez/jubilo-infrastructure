@@ -23,6 +23,7 @@ def docker_generate_auth_service_env_file(docker_host_ip, tokens):
 		# to satisfy REQUIRED_ENV_VARS.
 		f.write(f"EMAIL_HOST_USER=mailpit\n")
 		f.write(f"EMAIL_HOST_PASSWORD=mailpit\n")
+		f.write(f"RESEND_API_KEY=unused-in-dev\n")
 		f.write(f"DEFAULT_FROM_EMAIL=invites@mijubilo.com\n")
 		f.write(f"JUBILO_CHURCH_CLIENT_ID={tokens['church']['client_id']}\n")
 		f.write(f"JUBILO_CHURCH_CLIENT_SECRET={tokens['church']['client_secret']}\n")
