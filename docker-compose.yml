@@ -165,5 +165,27 @@ services:
     networks:
       - jubilo_network
 
+  # Same image/build as jubilo_music -- only the start command differs
+  # (rqworker instead of gunicorn). This is what actually runs
+  # process_hymn_audio_submission jobs now; without it running, uploaded
+  # audio just sits queued in Redis and never gets trimmed/normalized/
+  # transcoded. Needs the same dependencies jubilo_music has, for the
+  # same reasons: DB access (the job reads/writes HymnAudioSubmission/
+  # HymnAudio) and Redis (the queue itself).
+  jubilo_music_worker:
+    env_file:
+      - ../jubilo-music/.env
+    build: ../jubilo-music
+    volumes:
+      - ../jubilo-music:/app
+    command: python manage.py rqworker default
+    depends_on:
+      jubilo_music_db:
+        condition: service_healthy
+      jubilo_redis:
+        condition: service_healthy
+    networks:
+      - jubilo_network
+
 networks:
   jubilo_network:

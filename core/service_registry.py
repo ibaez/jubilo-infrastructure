@@ -1,9 +1,11 @@
 SERVICES = {
-	"gateway"    : "jubilo_gateway",
-	"auth"       : "jubilo_auth",
-	"church"     : "jubilo_church",
-	"music"      : "jubilo_music",
-	"meilisearch": "jubilo_meilisearch"
+	"gateway"     : "jubilo_gateway",
+	"auth"        : "jubilo_auth",
+	"auth_worker" : "jubilo_auth_worker",
+	"church"      : "jubilo_church",
+	"music"       : "jubilo_music",
+	"music_worker": "jubilo_music_worker",
+	"meilisearch" : "jubilo_meilisearch"
 }
 
 def resolve_services(name_list):
