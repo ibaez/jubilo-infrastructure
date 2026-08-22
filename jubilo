@@ -19,6 +19,7 @@ from services.docker import (
 	docker_run,
 	generate_token,
 )
+from services.e2e import e2e_test_revocation
 
 import time
 import requests
@@ -609,6 +610,11 @@ def dev_test_jubilo_music():
 	# 
 	docker_run("music", "python manage.py test music.tests")
 
+def dev_e2e(service_name_list=None):
+	print("Running end-to-end tests...")
+
+	e2e_test_revocation()
+
 def dev_test(service_name_list=None):
 	print("Running development tests...")
 
@@ -635,6 +641,15 @@ COMMANDS = {
 	"dev.setup": dev_setup,
 	"prod.setup": prod_setup,
 	"dev.test": dev_test,
+	# ------------------------------
+	# Dev-only, real-HTTP end-to-end checks -- see services/e2e.py's own
+	# module docstring for why these are separate from `dev test` (mocked,
+	# CI-run unit tests) rather than folded into it. dev_e2e runs every
+	# scenario in sequence, same shape as dev_test above -- add a new one by
+	# writing another function in services/e2e.py and calling it from
+	# dev_e2e. Assumes `dev setup` has already been run against this stack.
+	#
+	"dev.e2e": dev_e2e,
 }
 
 def main():

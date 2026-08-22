@@ -171,14 +171,16 @@ services:
   # audio just sits queued in Redis and never gets trimmed/normalized/
   # transcoded. Needs the same dependencies jubilo_music has, for the
   # same reasons: DB access (the job reads/writes HymnAudioSubmission/
-  # HymnAudio) and Redis (the queue itself).
+  # HymnAudio) and Redis (the queue itself). Also listens on 'revocation'
+  # (handle_revocation_event) -- one worker process handling both queues,
+  # same as jubilo-music's own railway.worker.json.
   jubilo_music_worker:
     env_file:
       - ../jubilo-music/.env
     build: ../jubilo-music
     volumes:
       - ../jubilo-music:/app
-    command: python manage.py rqworker default
+    command: python manage.py rqworker default revocation
     depends_on:
       jubilo_music_db:
         condition: service_healthy
