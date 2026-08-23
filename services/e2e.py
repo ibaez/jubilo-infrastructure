@@ -74,6 +74,30 @@ def _get_password_grant_token(docker_host_ip, postman_client_id, email, password
 	return json_data["access_token"]
 
 
+def _get_password_grant_token_scopes(docker_host_ip, postman_client_id, email, password, scope):
+	# Same request shape as _get_password_grant_token, but for callers that
+	# need to inspect the granted scope string itself (e.g. proving an
+	# override actually changed what lands on the token) rather than just
+	# needing a bearer token to make an authenticated request with.
+	response = requests.post(
+		f"https://{docker_host_ip}/auth/o/token",
+		data={
+			"grant_type": "password",
+			"username": email,
+			"password": password,
+			"client_id": postman_client_id,
+			"scope": scope,
+		},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+	json_data = response.json()
+	if "scope" not in json_data:
+		raise E2EFailure(f"Token response missing scope: {json_data}")
+	return set(json_data["scope"].split())
+
+
 def _wait_for_invitation_code(email):
 	# Same polling shape as dev_setup's own invitation email wait -- the
 	# invitation email is sent asynchronously by jubilo_auth_worker (an RQ
@@ -244,4 +268,174 @@ def e2e_test_revocation(service_name_list=None):
 	print(
 		f"PASS: jubilo-music rejected the revoked token after {rejected_after_seconds:.1f}s "
 		"(well under its ~15 minute cache lifetime)."
+	)
+
+
+def e2e_test_scope_override(service_name_list=None):
+	print("Running end-to-end UserScopeOverride verification...")
+
+	docker_host_ip = docker_get_host_ip()
+	auth_env, _ = _read_env_file(str(AUTH_ENV_PATH))
+	postman_client_id = auth_env.get("JUBILO_POSTMAN_CLIENT_ID")
+
+	if not postman_client_id:
+		raise E2EFailure(
+			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo dev setup` first."
+		)
+
+	test_email = f"e2e-scope-{int(time.time())}@test.com"
+	test_password = "E2EScopeTest123!"
+
+	# ------------------------------
+	# music_member's own scopes_set is exactly {"music:access"} -- makes it a
+	# clean target for a revoke (there's nothing else masking the effect).
+	# music:update belongs to music_staff (rank 20) and above, not
+	# music_member (rank 10) -- makes it a clean target for a grant. The
+	# superuser actor bypasses every rank check in the serializer, so which
+	# roles these scopes actually belong to doesn't gate the request itself;
+	# it only matters for proving the *effect* is real below.
+	#
+	GRANT_SCOPE = "music:update"
+	REVOKE_SCOPE = "music:access"
+
+	print("Acquiring superuser access token...")
+	superuser_token = _get_password_grant_token(
+		docker_host_ip, postman_client_id, SUPERUSER_EMAIL, SUPERUSER_PASSWORD, "auth music"
+	)
+
+	# Same reasoning as e2e_test_revocation's own invite -- auth:profile
+	# (from an auth role) is needed to call /auth/user/me for the test
+	# user's own id, since UserScopeOverride takes a user id in the body.
+	print(f"Inviting throwaway test user {test_email}...")
+	response = requests.post(
+		f"https://{docker_host_ip}/auth/invitation",
+		json={
+			"email": test_email,
+			"first_name": "E2E",
+			"last_name": "Scope",
+			"roles": [
+				{"service": "music", "role": "music_member"},
+				{"service": "auth", "role": "auth_member"},
+			],
+		},
+		headers={"Authorization": f"Bearer {superuser_token}"},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+
+	invitation_code = _wait_for_invitation_code(test_email)
+
+	print("Validating and accepting invitation...")
+	response = requests.post(
+		f"https://{docker_host_ip}/auth/invitation/validate",
+		data={"email": test_email, "invitation_code": invitation_code},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+	invitation_token = response.json()["invitation_token"]
+
+	response = requests.post(
+		f"https://{docker_host_ip}/auth/invitation/accept",
+		data={"invitation_token": invitation_token, "password": test_password},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+
+	print("Acquiring the test user's own access token to look up its id...")
+	test_user_token = _get_password_grant_token(
+		docker_host_ip, postman_client_id, test_email, test_password, "auth music"
+	)
+
+	response = requests.get(
+		f"https://{docker_host_ip}/auth/user/me",
+		headers={"Authorization": f"Bearer {test_user_token}"},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+	test_user_id = response.json()["id"]
+	print(f"Test user AuthUser id: {test_user_id}")
+
+	override_url = f"https://{docker_host_ip}/auth/user-scope-override"
+
+	print(f"Confirming the baseline token (role-derived only) has {REVOKE_SCOPE!r} and not {GRANT_SCOPE!r}...")
+	baseline_scopes = _get_password_grant_token_scopes(
+		docker_host_ip, postman_client_id, test_email, test_password, "music"
+	)
+	if REVOKE_SCOPE not in baseline_scopes:
+		raise E2EFailure(f"Expected {REVOKE_SCOPE!r} on the baseline music_member token, got: {sorted(baseline_scopes)}")
+	if GRANT_SCOPE in baseline_scopes:
+		raise E2EFailure(f"Did not expect {GRANT_SCOPE!r} on the baseline music_member token, got: {sorted(baseline_scopes)}")
+
+	print(f"Granting {GRANT_SCOPE!r} to the test user as the superuser...")
+	response = requests.post(
+		override_url,
+		json={"user": test_user_id, "overrides": [{"scope": GRANT_SCOPE, "kind": "grant"}]},
+		headers={"Authorization": f"Bearer {superuser_token}"},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+
+	# ------------------------------
+	# The grant above just called revoke_user_tokens() on the test user, so
+	# a fresh password-grant is required to see the effect -- the same
+	# force-relogin tradeoff documented on revoke_user_tokens itself.
+	#
+	print("Re-acquiring a token to confirm the grant took effect...")
+	granted_scopes = _get_password_grant_token_scopes(
+		docker_host_ip, postman_client_id, test_email, test_password, "music"
+	)
+	if GRANT_SCOPE not in granted_scopes:
+		raise E2EFailure(f"Expected {GRANT_SCOPE!r} after granting it, got: {sorted(granted_scopes)}")
+	if REVOKE_SCOPE not in granted_scopes:
+		raise E2EFailure(f"Expected {REVOKE_SCOPE!r} to still be present after an unrelated grant, got: {sorted(granted_scopes)}")
+	print(f"Confirmed: {GRANT_SCOPE!r} is now on the token, beyond what music_member's role alone provides.")
+
+	print(f"Revoking {REVOKE_SCOPE!r} from the test user as the superuser...")
+	response = requests.post(
+		override_url,
+		json={"user": test_user_id, "overrides": [{"scope": REVOKE_SCOPE, "kind": "revoke"}]},
+		headers={"Authorization": f"Bearer {superuser_token}"},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+
+	print("Re-acquiring a token to confirm the revoke took effect...")
+	revoked_scopes = _get_password_grant_token_scopes(
+		docker_host_ip, postman_client_id, test_email, test_password, "music"
+	)
+	if REVOKE_SCOPE in revoked_scopes:
+		raise E2EFailure(f"Expected {REVOKE_SCOPE!r} to be gone after revoking it, got: {sorted(revoked_scopes)}")
+	if GRANT_SCOPE not in revoked_scopes:
+		raise E2EFailure(f"Expected {GRANT_SCOPE!r} (from the earlier grant) to still be present, got: {sorted(revoked_scopes)}")
+	print(f"Confirmed: {REVOKE_SCOPE!r} is gone even though music_member's role alone would normally include it.")
+
+	print(f"Clearing the {GRANT_SCOPE!r} override as the superuser...")
+	response = requests.post(
+		override_url,
+		json={"user": test_user_id, "overrides": [{"scope": GRANT_SCOPE, "kind": "clear"}]},
+		headers={"Authorization": f"Bearer {superuser_token}"},
+		verify=CA_CERT,
+		timeout=5,
+	)
+	response.raise_for_status()
+
+	print("Re-acquiring a token to confirm the clear took effect...")
+	cleared_scopes = _get_password_grant_token_scopes(
+		docker_host_ip, postman_client_id, test_email, test_password, "music"
+	)
+	if GRANT_SCOPE in cleared_scopes:
+		raise E2EFailure(f"Expected {GRANT_SCOPE!r} to be gone after clearing its override, got: {sorted(cleared_scopes)}")
+	if REVOKE_SCOPE in cleared_scopes:
+		raise E2EFailure(f"Expected {REVOKE_SCOPE!r} to remain revoked (its own override was never cleared), got: {sorted(cleared_scopes)}")
+
+	print(
+		"PASS: grant added a scope beyond the role, revoke removed a role-derived scope, "
+		"and clear reverted the grant while leaving the unrelated revoke in place -- all "
+		"proven against real, freshly issued tokens."
 	)

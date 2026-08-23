@@ -19,7 +19,7 @@ from services.docker import (
 	docker_run,
 	generate_token,
 )
-from services.e2e import e2e_test_revocation
+from services.e2e import e2e_test_revocation, e2e_test_scope_override
 
 import time
 import requests
@@ -614,6 +614,7 @@ def dev_e2e(service_name_list=None):
 	print("Running end-to-end tests...")
 
 	e2e_test_revocation()
+	e2e_test_scope_override()
 
 def dev_test(service_name_list=None):
 	print("Running development tests...")
