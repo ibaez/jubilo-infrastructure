@@ -129,6 +129,23 @@ services:
     networks:
       - jubilo_network
 
+  # Used only by `manage.py test` (see jubilo_music/settings.py's
+  # JUBILO_MEILISEARCH_TEST_URL override) -- deliberately no volume, so
+  # every test run either starts clean or can be reset for free with
+  # `docker compose restart jubilo_meilisearch_test`. Keeps test runs from
+  # colliding with/corrupting real data in the dev instance above (fresh
+  # test hymn/artist/album ids starting from 1 on every run used to
+  # overwrite or orphan real documents in the shared instance).
+  jubilo_meilisearch_test:
+    image: getmeili/meilisearch:v1.10
+    environment:
+      MEILI_MASTER_KEY: local-test-master-key
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7701:7700"
+    networks:
+      - jubilo_network
+
   jubilo_music_db:
     image: postgres:16
     environment:
