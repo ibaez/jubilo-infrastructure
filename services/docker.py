@@ -94,7 +94,7 @@ def docker_generate_music_service_env_file(docker_host_ip, tokens):
 	})
 
 def docker_generate_church_service_env_file(docker_host_ip, tokens):
-	_update_env_file("../iece-church/.env", {
+	_update_env_file("../jubilo-church/.env", {
 		"JUBILO_GATEWAY_IP": docker_host_ip,
 		"JUBILO_CHURCH_CLIENT_ID": tokens['client_id'],
 		"JUBILO_CHURCH_CLIENT_SECRET": tokens['client_secret'],

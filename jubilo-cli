@@ -654,7 +654,7 @@ COMMANDS = {
 }
 
 def main():
-	parser = argparse.ArgumentParser(prog = "jubilo", description = "Jubilo CLI - Manage your Jubilo infrastructure with ease")
+	parser = argparse.ArgumentParser(prog = "jubilo-cli", description = "Jubilo CLI - Manage your Jubilo infrastructure with ease")
 
 	parser.add_argument("group", help="Service group to manage")
 	parser.add_argument("action", help="Action to perform on the service group")

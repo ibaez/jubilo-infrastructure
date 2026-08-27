@@ -10,22 +10,22 @@ DEV ONLY. This is NOT part of either service's `manage.py test` suite and is
 NOT run by CI -- CI runs each repo's tests in isolation (mocked, no real
 cross-service Redis/RQ workers), and this needs the full docker-compose
 stack actually running. It creates a real throwaway AuthUser/Participant/
-invitation through the real HTTP API, the same way `jubilo dev setup` does
+invitation through the real HTTP API, the same way `jubilo-cli dev setup` does
 for its own fixture users -- safe by construction (this only ever targets
 containers named in this repo's own docker-compose.yml, never a production
 DATABASE_URL), but repeated runs accumulate rows in the dev DB;
-`docker compose down -v` + `jubilo dev setup` is the intended way to reset,
+`docker compose down -v` + `jubilo-cli dev setup` is the intended way to reset,
 not anything this script does itself.
 
-Run with: ./jubilo dev e2e
-Assumes `jubilo dev setup` has already been run at least once against this
+Run with: ./jubilo-cli dev e2e
+Assumes `jubilo-cli dev setup` has already been run at least once against this
 stack -- reuses its superuser credentials and the jubilo_postman OAuth
 client already provisioned there.
 
 Adding another scenario: write a new function here (self-contained, same
-shape as e2e_test_revocation) and call it from the `jubilo` CLI's dev_e2e,
+shape as e2e_test_revocation) and call it from the `jubilo-cli` CLI's dev_e2e,
 same pattern as dev_test aggregating dev_test_jubilo_auth/
-dev_test_jubilo_music. `./jubilo dev e2e` then runs every scenario in
+dev_test_jubilo_music. `./jubilo-cli dev e2e` then runs every scenario in
 sequence.
 """
 
@@ -135,7 +135,7 @@ def e2e_test_revocation(service_name_list=None):
 
 	if not postman_client_id:
 		raise E2EFailure(
-			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo dev setup` first."
+			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo-cli dev setup` first."
 		)
 
 	test_email = f"e2e-revoke-{int(time.time())}@test.com"
@@ -280,7 +280,7 @@ def e2e_test_scope_override(service_name_list=None):
 
 	if not postman_client_id:
 		raise E2EFailure(
-			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo dev setup` first."
+			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo-cli dev setup` first."
 		)
 
 	test_email = f"e2e-scope-{int(time.time())}@test.com"

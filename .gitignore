@@ -2,4 +2,6 @@
 *.pyc
 __pycache__/
 certs/
+
+.claude/
 commit_message.txt

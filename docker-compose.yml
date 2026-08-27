@@ -13,6 +13,7 @@ services:
     depends_on:
       - jubilo_auth
       - jubilo_music
+      - jubilo_church
     networks:
       - jubilo_network
 
@@ -103,20 +104,39 @@ services:
     networks:
       - jubilo_network
 
-  # jubilo_church:
-  #   env_file:
-  #     - ../iece-church/.env
-  #   build: ../iece-church
-  #   ports:
-  #     - "8001:8000"
-  #   volumes:
-  #     - ../iece-church:/app
-  #   depends_on:
-  #     - jubilo_auth
-  #   expose:
-  #     - "8001"
-  #   networks:
-  #     - jubilo_network
+  jubilo_church_db:
+    image: postgres:16
+    environment:
+        POSTGRES_DB: jubilo_church
+        POSTGRES_USER: jubilo_church_user
+        POSTGRES_PASSWORD: jubilo_church_password
+    healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U jubilo_church_user -d jubilo_church || exit 1"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+    ports:
+      - "5434:5432"
+    networks:
+      - jubilo_network
+
+  jubilo_church:
+    env_file:
+      - ../jubilo-church/.env
+    build: ../jubilo-church
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../jubilo-church:/app
+    depends_on:
+      jubilo_church_db:
+        condition: service_healthy
+      jubilo_auth:
+        condition: service_started
+    expose:
+      - "8001"
+    networks:
+      - jubilo_network
 
   jubilo_meilisearch:
     env_file:
