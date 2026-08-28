@@ -493,24 +493,24 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific artist test
 	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist.ArtistTests.test_delete_artist_that_has_no_albums_succeeds")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.artist.test_artist.ArtistTests.test_delete_artist_that_has_no_albums_succeeds")
 
 	#------------------------------
 	# Running all artist tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.artist.test_artist")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.artist.test_artist")
 
 
 
 	#------------------------------
 	# Running a specific album test
 	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album.AlbumTests.test_update_album_with_category_field_from_album_to_single_fails_if_album_has_multiple_hymns")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.album.test_album.AlbumTests.test_update_album_with_category_field_from_album_to_single_fails_if_album_has_multiple_hymns")
 
 	#------------------------------
 	# Running all album tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.album.test_album")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.album.test_album")
 
 
 
@@ -521,12 +521,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific hymn test
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn.HymnTests.test_retrieve_album_does_not_include_deleted_hymns")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn.test_hymn.HymnTests.test_retrieve_album_does_not_include_deleted_hymns")
 
 	#------------------------------
 	# Running all hymn tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn.test_hymn")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn.test_hymn")
 
 
 	# ------------------------------
@@ -536,12 +536,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific topic test
 	# 
-	# docker_run("music", "python manage.py test music.tests.topic.test_topic.TopicTests.test_retrieve_archived_topic_does_not_find_active_topic")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.topic.test_topic.TopicTests.test_retrieve_archived_topic_does_not_find_active_topic")
 
 	#------------------------------
 	# Running all topic tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.topic.test_topic")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.topic.test_topic")
 
 
 
@@ -552,12 +552,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific hymn topic test
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic.HymnTopicTests.test_delete_hymn_topic_already_deleted")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn_topic.test_hymn_topic.HymnTopicTests.test_delete_hymn_topic_already_deleted")
 
 	#------------------------------
 	# Running all hymn topic tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn_topic.test_hymn_topic")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn_topic.test_hymn_topic")
 
 
 
@@ -568,12 +568,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific playlist test
 	# 
-	# docker_run("music", "python manage.py test music.tests.playlist.test_playlist.PlaylistTests.test_update_playlist_cannot_update_public_playlist_of_another_user")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.playlist.test_playlist.PlaylistTests.test_update_playlist_cannot_update_public_playlist_of_another_user")
 
 	#------------------------------
 	# Running all playlist tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.playlist.test_playlist")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.playlist.test_playlist")
 
 
 
@@ -584,12 +584,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific playlist hymn test
 	# 
-	# docker_run("music", "python manage.py test music.tests.playlist_hymn.test_playlist_hymn.PlaylistHymnTests.test_delete_playlist_hymn_same_playlist_hymn_multiple_delete")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.playlist_hymn.test_playlist_hymn.PlaylistHymnTests.test_delete_playlist_hymn_same_playlist_hymn_multiple_delete")
 
 	#------------------------------
 	# Running all playlist hymn tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.playlist_hymn.test_playlist_hymn")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.playlist_hymn.test_playlist_hymn")
 
 
 
@@ -600,12 +600,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific hymn lyric test
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn_lyric.test_hymn_lyric.HymnLyricTests.test_create_hymn_lyric_version_field_missing")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn_lyric.test_hymn_lyric.HymnLyricTests.test_create_hymn_lyric_version_field_missing")
 
 	#------------------------------
 	# Running all hymn lyric tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.hymn_lyric.test_hymn_lyric")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.hymn_lyric.test_hymn_lyric")
 
 
 
@@ -616,12 +616,12 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific search test
 	# 
-	# docker_run("music", "python manage.py test music.tests.search.test_search.SearchTests.test_search_for_artist_by_name")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.search.test_search.SearchTests.test_search_for_artist_by_name")
 
 	#------------------------------
 	# Running all search tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.search.test_search")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.search.test_search")
 
 
 
@@ -632,18 +632,18 @@ def dev_test_jubilo_music():
 	#------------------------------
 	# Running a specific miscellaneous test
 	# 
-	# docker_run("music", "python manage.py test music.tests.misc.test_misc.MiscTests.test_throttling_across_different_endpoints")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.misc.test_misc.MiscTests.test_throttling_across_different_endpoints")
 
 	#------------------------------
 	# Running all miscellaneous tests
 	# 
-	# docker_run("music", "python manage.py test music.tests.misc.test_misc")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests.misc.test_misc")
 
 
 	#------------------------------
 	# Running ALL jubilo_music tests
 	# 
-	docker_run("music", "python manage.py test music.tests")
+	docker_run("music", "python manage.py test jubilo_music.music.tests")
 
 def dev_e2e(service_name_list=None):
 	print("Running end-to-end tests...")
@@ -667,7 +667,7 @@ def dev_test(service_name_list=None):
 	#------------------------------
 	# Running ALL tests
 	# 
-	# docker_run("music", "python manage.py test music.tests")
+	# docker_run("music", "python manage.py test jubilo_music.music.tests")
 
 COMMANDS = {
 	"docker.build": docker_build,
