@@ -393,7 +393,7 @@ def dev_setup(service_name_list=None):
 
 	docker_run("church", "python scripts/church_dev_setup.py {}".format(superuser_access_token))
 
-	url = f"https://{docker_host_ip}/api/church/church_role/"
+	url = f"https://{docker_host_ip}/api/church/church-role"
 
 	print(f"Making request to {url}")
 
