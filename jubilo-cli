@@ -204,11 +204,21 @@ def dev_setup(service_name_list=None):
 					"username": SUPERUSER_EMAIL,
 					"password": SUPERUSER_PASSWORD,
 					"client_id": jubilo_postman_tokens['client_id'],
-					"scope": "auth music"
+					# ------------------------------
+					# "church" is included here because this same
+					# superuser_access_token is what gets passed to
+					# scripts/church_dev_setup.py below -- without it,
+					# NarrowingOAuth2Validator only grants the intersection
+					# of requested and entitled scopes, so no church:*
+					# scope (including church:admin) would ever be issued
+					# even though compute_scopes_for_user already entitles
+					# a superuser to it.
+					#
+					"scope": "auth music church"
 				},
 				verify=CA_CERT,
 				timeout=5)
-			
+
 			response.raise_for_status()
 
 			json_data = response.json()
@@ -235,7 +245,7 @@ def dev_setup(service_name_list=None):
 				"roles": [
 					{
 						"service": "music",
-						"role": "music_member"
+						"role": "music_basic"
 					}
 				]
 			},
@@ -372,8 +382,33 @@ def dev_setup(service_name_list=None):
 	print(f"Acquired access token for auth service member: {member_access_token}")
 
 	# ------------------------------
+	# CHURCH SERVICE setup -- uses the same auth service superuser token
+	# acquired above. jubilo_church's IsSuperuser-gated endpoints (used by
+	# setup_collectives below) check request.user.is_superuser, which is
+	# synced from the introspected token's content on every request -- not
+	# from any scope string -- so no additional scope/role grant is needed
+	# beyond the superuser account already created earlier in this function.
+	#
+	docker_start(["church"])
+
+	docker_run("church", "python scripts/church_dev_setup.py {}".format(superuser_access_token))
+
+	url = f"https://{docker_host_ip}/api/church/church_role/"
+
+	print(f"Making request to {url}")
+
+	response = requests.get(url,
+		headers={
+			"Authorization": f"Bearer {superuser_access_token}"
+		},
+		verify=CA_CERT,
+		timeout=5)
+
+	print(f"ChurchRoleList request to church service response: {response.status_code} - {response.text}")
+
+	# ------------------------------
 	# Clear and setup jubilo_music service search index
-	# 
+	#
 	setup_meilisearch_data_directory()
 
 	docker_start(["meilisearch"])

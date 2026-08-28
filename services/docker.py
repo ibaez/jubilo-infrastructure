@@ -95,9 +95,22 @@ def docker_generate_music_service_env_file(docker_host_ip, tokens):
 
 def docker_generate_church_service_env_file(docker_host_ip, tokens):
 	_update_env_file("../jubilo-church/.env", {
+		"DEBUG": "True",
+		"SECRET_KEY": tokens['secret_key'],
 		"JUBILO_GATEWAY_IP": docker_host_ip,
+		"AUTH_SERVICE_INTROSPECTION_URL": "http://jubilo-auth:8000/auth/o/introspect",
 		"JUBILO_CHURCH_CLIENT_ID": tokens['client_id'],
 		"JUBILO_CHURCH_CLIENT_SECRET": tokens['client_secret'],
+		"DATABASE_URL": "postgres://jubilo_church_user:jubilo_church_password@jubilo_church_db:5432/jubilo_church",
+		"EMAIL_HOST": "jubilo_mailpit",
+		"EMAIL_PORT": "1025",
+		"EMAIL_USE_TLS": "False",
+		# Mailpit doesn't check credentials -- these just need to be
+		# non-empty to satisfy REQUIRED_ENV_VARS.
+		"EMAIL_HOST_USER": "mailpit",
+		"EMAIL_HOST_PASSWORD": "mailpit",
+		"RESEND_API_KEY": "unused-in-dev",
+		"DEFAULT_FROM_EMAIL": "invites@mijubilo.com",
 	})
 
 def docker_generate_jubilo_mobile_env_file(docker_host_ip, tokens):
