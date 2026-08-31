@@ -535,6 +535,33 @@ def e2e_test_picture_processing(service_name_list=None):
 	response.raise_for_status()
 	collective_id = response.json()["id"]
 
+	# ------------------------------
+	# A second and third Collective, one region- and one mission-category --
+	# neither used by anything below (the Picture pipeline only needs the
+	# district one above for its Church/Event chain), but confirms
+	# POST /collective actually works for both non-district categories, not
+	# just the one this scenario happens to exercise for its own purposes.
+	# Also leaves at least one of each in the dev DB for manual UI testing,
+	# since setup_collectives.py's seed run stops at the first failure and
+	# collective_data.json orders every district entry before any
+	# region/mission one -- an interrupted run silently never reaches those.
+	#
+	print("Creating a throwaway region Collective...")
+	response = requests.post(
+		f"{church_api}/collective",
+		json={"category": "region", "placement": None, "title": f"E2E Picture Region {unique_suffix}", "slug": f"e2e-picture-region-{unique_suffix}"},
+		headers=headers, verify=CA_CERT, timeout=5,
+	)
+	response.raise_for_status()
+
+	print("Creating a throwaway mission Collective...")
+	response = requests.post(
+		f"{church_api}/collective",
+		json={"category": "mission", "placement": None, "title": f"E2E Picture Mission {unique_suffix}", "slug": f"e2e-picture-mission-{unique_suffix}"},
+		headers=headers, verify=CA_CERT, timeout=5,
+	)
+	response.raise_for_status()
+
 	response = requests.post(
 		f"{church_api}/church",
 		json={
