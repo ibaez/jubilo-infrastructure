@@ -3,5 +3,6 @@
 __pycache__/
 certs/
 
+CLAUDE.md
 .claude/
 commit_message.txt

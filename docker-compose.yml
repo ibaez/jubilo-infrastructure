@@ -133,8 +133,30 @@ services:
         condition: service_healthy
       jubilo_auth:
         condition: service_started
+      jubilo_redis:
+        condition: service_healthy
     expose:
       - "8001"
+    networks:
+      - jubilo_network
+
+  # Same image/build as jubilo_church -- only the start command differs
+  # (rqworker instead of gunicorn). This is what actually runs
+  # process_picture jobs now; without it running, an uploaded Picture
+  # stays 'pending' forever (processed_image/thumbnail_image never get
+  # populated). Same shape as jubilo_music_worker.
+  jubilo_church_worker:
+    env_file:
+      - ../jubilo-church/.env
+    build: ../jubilo-church
+    volumes:
+      - ../jubilo-church:/app
+    command: python manage.py rqworker default
+    depends_on:
+      jubilo_church_db:
+        condition: service_healthy
+      jubilo_redis:
+        condition: service_healthy
     networks:
       - jubilo_network
 
