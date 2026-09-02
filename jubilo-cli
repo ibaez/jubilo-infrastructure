@@ -391,6 +391,16 @@ def dev_setup(service_name_list=None):
 	#
 	docker_start(["church"])
 
+	#------------------------------
+	# Same reasoning as auth_worker above -- church_worker isn't a
+	# `depends_on` of church, so starting church alone never brings it up.
+	# It's what drains the auth->church Participant mirror job (an async RQ
+	# job enqueued by auth_worker on invitation acceptance, not synchronous)
+	# -- without it running, newly-invited users never get a Participant row
+	# in jubilo-church until something happens to start it manually later.
+	#
+	docker_start(["church_worker"])
+
 	docker_run("church", "python scripts/church_dev_setup.py {}".format(superuser_access_token))
 
 	url = f"https://{docker_host_ip}/api/church/church-role"

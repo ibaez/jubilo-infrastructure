@@ -119,6 +119,7 @@ def docker_generate_jubilo_mobile_env_file(docker_host_ip, tokens):
 		"EXPO_PUBLIC_JUBILO_AUTH_BASE_URL": f"https://{docker_host_ip}/auth",
 		"EXPO_PUBLIC_JUBILO_MOBILE_CLIENT_ID": tokens['client_id'],
 		"EXPO_PUBLIC_JUBILO_MUSIC_BASE_URL": f"https://{docker_host_ip}/api/music",
+		"EXPO_PUBLIC_JUBILO_CHURCH_BASE_URL": f"https://{docker_host_ip}/api/church",
 	})
 
 def generate_token(length):
