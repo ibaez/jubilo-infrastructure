@@ -151,7 +151,7 @@ services:
     build: ../jubilo-church
     volumes:
       - ../jubilo-church:/app
-    command: python manage.py rqworker default
+    command: python manage.py rqworker default revocation
     depends_on:
       jubilo_church_db:
         condition: service_healthy
