@@ -2,6 +2,7 @@
 
 import argparse
 import re
+import sys
 import traceback
 from services.docker import (
 	docker_generate_service_tokens,
@@ -739,6 +740,11 @@ def main():
 		# the file/line it came from.
 		print(f"Error: {command_key} failed")
 		traceback.print_exc()
+		# Without this, main() returns normally after printing the error,
+		# so the jubilo-cli process itself still exits 0 -- anything
+		# checking $?  (a script, `&&` chaining, CI) would see success even
+		# though the command it ran actually failed.
+		sys.exit(1)
 
 
 if __name__ == "__main__":
