@@ -277,7 +277,8 @@ def dev_setup(service_name_list=None):
 
 		#------------------------------
 		# Read invitation email from MailPit in order to get the member user's
-		# invitation code which is necessary for validating and accepting the
+		# invitation token (embedded in an /invite/<token> Universal Link
+		# (iOS) / App Link (Android)) which is necessary for accepting the
 		# invitation which creates the member user. Sent asynchronously by
 		# auth_worker (an RQ job, not sent synchronously in the request above)
 		# -- polled with a bounded timeout rather than assumed to already be
@@ -287,7 +288,6 @@ def dev_setup(service_name_list=None):
 		INVITATION_EMAIL_TIMEOUT_SECONDS = 30
 		INVITATION_EMAIL_POLL_INTERVAL_SECONDS = 1
 
-		invitation_code = None
 		latest = None
 		deadline = time.time() + INVITATION_EMAIL_TIMEOUT_SECONDS
 
@@ -304,47 +304,16 @@ def dev_setup(service_name_list=None):
 			print("Check that jubilo_auth_worker is running and healthy: docker compose logs jubilo_auth_worker")
 			return
 
-		# Snippet is often enough for a short code, but fetch full message for reliability
 		detail = requests.get(f"http://localhost:8025/api/v1/message/{latest['ID']}")
 		body = detail.json()["Text"]  # or ["HTML"], confirm exact key from a print
 
-		match = re.search(r'\b\d{6}\b', body)
+		match = re.search(r'/invite/(\S+)', body)
 		if not match:
-			print(f"Could not find a 6-digit invitation code in the invitation email body for {member_email}.")
+			print(f"Could not find an invitation link in the invitation email body for {member_email}.")
 			print(f"Email body was:\n{body}")
 			return
 
-		invitation_code = match.group()
-
-		#------------------------------
-		# Validate invitation for auth service member user.
-		#
-		invitation_token = None
-		try:
-			response = requests.post(f"https://{docker_host_ip}/auth/invitation/validate",
-				data={
-					"email": member_email,
-					"invitation_code": invitation_code,
-				},
-				verify=CA_CERT,
-				timeout=5)
-
-			response.raise_for_status()
-
-			json_data = response.json()
-			if "invitation_token" not in json_data:
-				raise ValueError(f"Response JSON does not contain 'invitation_token': {json_data}")
-			invitation_token = json_data.get("invitation_token")
-		except Exception as e:
-			print(f"Failed to accept invitation for {member_email}. Error: {e}")
-			print(f"Response status code: {response.status_code}")
-			print(f"Response text: {response.text}")
-			return
-
-		if not invitation_token:
-			print(f"Failed to retrieve invitation token for {member_email}.")
-			return
-
+		invitation_token = match.group(1)
 
 		#------------------------------
 		# Accept invitation for auth service member user.

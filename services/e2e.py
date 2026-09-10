@@ -129,10 +129,13 @@ def _get_password_grant_token_scopes(docker_host_ip, postman_client_id, email, p
 	return set(json_data["scope"].split())
 
 
-def _wait_for_invitation_code(email):
+def _wait_for_invitation_token(email):
 	# Same polling shape as dev_setup's own invitation email wait -- the
 	# invitation email is sent asynchronously by jubilo_auth_worker (an RQ
-	# job), so a single-shot check racing the worker would be flaky.
+	# job), so a single-shot check racing the worker would be flaky. The
+	# email body now contains an /invite/<token> link (Universal Link
+	# (iOS) / App Link (Android)) instead of a 6-digit code -- this just
+	# pulls the token straight out of that link, same as tapping it would.
 	deadline = time.time() + MAILPIT_TIMEOUT_SECONDS
 	latest = None
 
@@ -151,10 +154,10 @@ def _wait_for_invitation_code(email):
 
 	detail = requests.get(f"http://localhost:8025/api/v1/message/{latest['ID']}")
 	body = detail.json()["Text"]
-	match = re.search(r'\b\d{6}\b', body)
+	match = re.search(r'/invite/(\S+)', body)
 	if not match:
-		raise E2EFailure(f"Could not find a 6-digit invitation code in the email body:\n{body}")
-	return match.group()
+		raise E2EFailure(f"Could not find an invitation link in the email body:\n{body}")
+	return match.group(1)
 
 
 def e2e_test_revocation(service_name_list=None):
@@ -203,18 +206,9 @@ def e2e_test_revocation(service_name_list=None):
 	)
 	response.raise_for_status()
 
-	invitation_code = _wait_for_invitation_code(test_email)
+	invitation_token = _wait_for_invitation_token(test_email)
 
-	print("Validating and accepting invitation...")
-	response = requests.post(
-		f"https://{docker_host_ip}/auth/invitation/validate",
-		data={"email": test_email, "invitation_code": invitation_code},
-		verify=CA_CERT,
-		timeout=5,
-	)
-	response.raise_for_status()
-	invitation_token = response.json()["invitation_token"]
-
+	print("Accepting invitation...")
 	response = requests.post(
 		f"https://{docker_host_ip}/auth/invitation/accept",
 		data={"invitation_token": invitation_token, "password": test_password},
@@ -378,18 +372,9 @@ def e2e_test_scope_override(service_name_list=None):
 	)
 	response.raise_for_status()
 
-	invitation_code = _wait_for_invitation_code(test_email)
+	invitation_token = _wait_for_invitation_token(test_email)
 
-	print("Validating and accepting invitation...")
-	response = requests.post(
-		f"https://{docker_host_ip}/auth/invitation/validate",
-		data={"email": test_email, "invitation_code": invitation_code},
-		verify=CA_CERT,
-		timeout=5,
-	)
-	response.raise_for_status()
-	invitation_token = response.json()["invitation_token"]
-
+	print("Accepting invitation...")
 	response = requests.post(
 		f"https://{docker_host_ip}/auth/invitation/accept",
 		data={"invitation_token": invitation_token, "password": test_password},
