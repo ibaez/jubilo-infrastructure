@@ -18,6 +18,9 @@ unit/integration test run in isolation can't:
   picked up by the separate jubilo_church_worker container and processed
   against real R2, not just under manage.py test's synchronous ASYNC=False
   override.
+- e2e_test_church_picture_processing -- same shared-worker pipeline for
+  ChurchPicture (process_church_picture), plus MAX_PICTURES_PER_CHURCH cap
+  enforcement/release against the real API.
 
 DEV ONLY. None of this is part of any service's own `manage.py test` suite
 and none of it is run by CI -- CI runs each repo's tests in isolation
@@ -640,5 +643,142 @@ def e2e_test_picture_processing(service_name_list=None):
 	print(
 		"PASS: a real Picture upload was picked up by jubilo_church_worker, processed against real "
 		"Cloudflare R2 (source deleted, processed/thumbnail images stored and fetchable), and deleted -- "
+		"proven end-to-end against the real running stack, not just manage.py test's synchronous override."
+	)
+
+
+def e2e_test_church_picture_processing(service_name_list=None):
+	"""
+	End-to-end verification of jubilo-church's ChurchPicture upload pipeline
+	(jubilo_church/church/tasks.py::process_church_picture,
+	design_docs/2026-09-10-church-pictures.md) -- same shared-worker
+	pipeline e2e_test_picture_processing already proves for Picture (both
+	go through the same _process_picture_like helper), but ChurchPicture
+	has its own auto-approved (no moderation) upload path and its own
+	MAX_PICTURES_PER_CHURCH=1 cap to confirm against the real API, not just
+	manage.py test's synchronous override.
+	"""
+	print("Running end-to-end ChurchPicture processing verification...")
+
+	docker_host_ip = docker_get_host_ip()
+	auth_env, _ = _read_env_file(str(AUTH_ENV_PATH))
+	postman_client_id = auth_env.get("JUBILO_POSTMAN_CLIENT_ID")
+
+	if not postman_client_id:
+		raise E2EFailure(
+			f"JUBILO_POSTMAN_CLIENT_ID not found in {AUTH_ENV_PATH} -- run `jubilo-cli dev setup` first."
+		)
+
+	church_api = f"https://{docker_host_ip}/api/church"
+	unique_suffix = int(time.time())
+
+	print("Acquiring superuser access token (scope=church)...")
+	superuser_token = _get_password_grant_token(
+		docker_host_ip, postman_client_id, SUPERUSER_EMAIL, SUPERUSER_PASSWORD, "church"
+	)
+	headers = {"Authorization": f"Bearer {superuser_token}"}
+
+	print("Creating a throwaway Collective/Church...")
+	response = requests.post(
+		f"{church_api}/collective",
+		json={"category": "district", "placement": unique_suffix % 1_000_000, "title": f"E2E ChurchPicture Collective {unique_suffix}", "slug": f"e2e-church-picture-collective-{unique_suffix}"},
+		headers=headers, verify=CA_CERT, timeout=5,
+	)
+	response.raise_for_status()
+	collective_id = response.json()["id"]
+
+	response = requests.post(
+		f"{church_api}/church",
+		json={
+			"collective": collective_id, "category": "sector", "placement": 1,
+			"slug": f"e2e-church-picture-church-{unique_suffix}", "address": "1 E2E Test St", "founded": "2000-01-01",
+		},
+		headers=headers, verify=CA_CERT, timeout=5,
+	)
+	response.raise_for_status()
+	church_id = response.json()["id"]
+	print(f"Church id: {church_id}")
+
+	print("Uploading a real ChurchPicture (multipart, real JPEG bytes)...")
+	response = requests.post(
+		f"{church_api}/church-picture",
+		data={"church": church_id},
+		files={"source_image": ("e2e_test.jpg", MINIMAL_JPEG_BYTES, "image/jpeg")},
+		headers=headers, verify=CA_CERT, timeout=10,
+	)
+	if response.status_code != 201:
+		raise E2EFailure(f"Expected 201 creating the ChurchPicture, got {response.status_code}: {response.text}")
+	picture_id = response.json()["id"]
+	print(f"ChurchPicture id: {picture_id}, initial processing_status: {response.json()['processing_status']}")
+
+	print("Confirming MAX_PICTURES_PER_CHURCH=1 rejects a second upload...")
+	response = requests.post(
+		f"{church_api}/church-picture",
+		data={"church": church_id},
+		files={"source_image": ("e2e_test2.jpg", MINIMAL_JPEG_BYTES, "image/jpeg")},
+		headers=headers, verify=CA_CERT, timeout=10,
+	)
+	if response.status_code != 400:
+		raise E2EFailure(f"Expected 400 (cap reached) uploading a second ChurchPicture, got {response.status_code}: {response.text}")
+
+	print(f"Polling for jubilo_church_worker to process it (up to {PICTURE_PROCESSING_TIMEOUT_SECONDS}s)...")
+	deadline = time.time() + PICTURE_PROCESSING_TIMEOUT_SECONDS
+	picture_data = None
+
+	while time.time() < deadline:
+		response = requests.get(f"{church_api}/church-picture/{picture_id}", headers=headers, verify=CA_CERT, timeout=5)
+		response.raise_for_status()
+		picture_data = response.json()
+		if picture_data["processing_status"] in ("ready", "failed"):
+			break
+		time.sleep(PICTURE_PROCESSING_POLL_INTERVAL_SECONDS)
+
+	if picture_data is None or picture_data["processing_status"] not in ("ready", "failed"):
+		raise E2EFailure(
+			f"ChurchPicture {picture_id} was still 'pending'/'processing' after {PICTURE_PROCESSING_TIMEOUT_SECONDS}s -- "
+			"the job either never got enqueued or jubilo_church_worker isn't consuming the 'default' queue. "
+			"Check: docker compose logs jubilo_church_worker jubilo_redis"
+		)
+	if picture_data["processing_status"] == "failed":
+		raise E2EFailure(f"ChurchPicture {picture_id} processing failed: {picture_data.get('failed_message')}")
+
+	print(f"ChurchPicture reached 'ready'. thumbnail_image: {picture_data['thumbnail_image']}")
+
+	download_path = f"/api/church/church-picture/{picture_id}/image"
+	if download_path not in picture_data["processed_image"]:
+		raise E2EFailure(f"Expected processed_image to be our own download endpoint ({download_path}), got: {picture_data['processed_image']}")
+	if download_path in picture_data["thumbnail_image"]:
+		raise E2EFailure(f"Expected thumbnail_image to be a direct R2 URL, not our own download endpoint, got: {picture_data['thumbnail_image']}")
+
+	print("Following the processed_image download endpoint to a real, fetchable R2 URL...")
+	response = requests.get(f"{church_api}/church-picture/{picture_id}/image", headers=headers, verify=CA_CERT, timeout=5, allow_redirects=False)
+	if response.status_code != 302:
+		raise E2EFailure(f"Expected church-picture-image-download to 302, got {response.status_code}: {response.text}")
+
+	r2_response = requests.get(response.headers["Location"], timeout=10)
+	if r2_response.status_code != 200:
+		raise E2EFailure(f"Expected the signed R2 URL itself to return 200, got {r2_response.status_code}")
+	if not r2_response.headers.get("Content-Type", "").startswith("image/"):
+		raise E2EFailure(f"Expected an image/* Content-Type from R2, got: {r2_response.headers.get('Content-Type')}")
+
+	print("Deleting the ChurchPicture...")
+	response = requests.delete(f"{church_api}/church-picture/{picture_id}", headers=headers, verify=CA_CERT, timeout=5)
+	if response.status_code != 204:
+		raise E2EFailure(f"Expected 204 deleting the ChurchPicture, got {response.status_code}: {response.text}")
+
+	print("Confirming the cap slot was freed by uploading a replacement...")
+	response = requests.post(
+		f"{church_api}/church-picture",
+		data={"church": church_id},
+		files={"source_image": ("e2e_test3.jpg", MINIMAL_JPEG_BYTES, "image/jpeg")},
+		headers=headers, verify=CA_CERT, timeout=10,
+	)
+	if response.status_code != 201:
+		raise E2EFailure(f"Expected 201 uploading a replacement ChurchPicture after deleting the first, got {response.status_code}: {response.text}")
+
+	print(
+		"PASS: a real ChurchPicture upload was picked up by jubilo_church_worker, processed against real "
+		"Cloudflare R2 (source deleted, processed/thumbnail images stored and fetchable), the "
+		"MAX_PICTURES_PER_CHURCH cap was enforced then freed by delete, and the row was deleted -- "
 		"proven end-to-end against the real running stack, not just manage.py test's synchronous override."
 	)
