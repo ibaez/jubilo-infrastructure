@@ -93,7 +93,7 @@ services:
     build: ../jubilo-auth
     volumes:
       - ../jubilo-auth:/app
-    command: python manage.py rqworker default
+    command: python manage.py rqworker default --with-scheduler
     depends_on:
       jubilo_auth_db:
         condition: service_healthy
@@ -151,7 +151,7 @@ services:
     build: ../jubilo-church
     volumes:
       - ../jubilo-church:/app
-    command: python manage.py rqworker default revocation
+    command: python manage.py rqworker default revocation --with-scheduler
     depends_on:
       jubilo_church_db:
         condition: service_healthy
@@ -239,7 +239,7 @@ services:
     build: ../jubilo-music
     volumes:
       - ../jubilo-music:/app
-    command: python manage.py rqworker default revocation
+    command: python manage.py rqworker default revocation --with-scheduler
     depends_on:
       jubilo_music_db:
         condition: service_healthy
