@@ -138,7 +138,9 @@ services:
     expose:
       - "8001"
     networks:
-      - jubilo_network
+      jubilo_network:
+        aliases:
+          - jubilo-church # Same reasoning as jubilo_auth's own alias above -- jubilo-auth calls directly into this container (internal invitation-authority check) using a hyphenated hostname, since Django's ALLOWED_HOSTS rejects underscores.
 
   # Same image/build as jubilo_church -- only the start command differs
   # (rqworker instead of gunicorn). This is what actually runs
