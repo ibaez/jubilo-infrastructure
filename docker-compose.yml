@@ -9,6 +9,9 @@ services:
       - "443:443"
     volumes:
       - ../jubilo-gateway/default.dev.conf:/etc/nginx/conf.d/default.conf
+      # The gateway's own static pages (the /invite/ fallback). A directory
+      # mount so an edited file is live on the next request.
+      - ../jubilo-gateway/html:/usr/share/nginx/html:ro
       - ./certs:/etc/nginx/certs
     depends_on:
       - jubilo_auth
