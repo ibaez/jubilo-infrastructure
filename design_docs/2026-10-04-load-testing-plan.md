@@ -433,6 +433,64 @@ command that was meant to generate it was pasted as the value. It works
 is worth rotating to a real random id by hand in Railway's variables
 for both jubilo-auth's provisioning and the service that uses it.
 
+### Item 4 done: CONN_MAX_AGE (2026-10-05)
+
+The hypothesis from the earlier runs: `CONN_MAX_AGE=0` means every
+request opens and closes a fresh Postgres connection, and connection
+setup is the most expensive thing Postgres does for a cheap query --
+which is why the databases looked as busy as the services themselves at
+well under 100 requests/s. Set `conn_max_age=60` and
+`conn_health_checks=True` (django's health-check ping so a 60s-old
+connection that Railway recycled underneath a worker is silently
+replaced instead of erroring) on all three services, same settings.py
+pattern, and reran the two heaviest dev scenarios back to back on the
+same stack, same moment, nothing else changed.
+
+**Church ceiling bracket, 200 → 800 req/s offered:**
+
+| Stage | p95 before | p95 after | requests delivered before | after |
+|---|---|---|---|---|
+| 200/s | 96 ms | 15 ms | 3,149 | 3,149 |
+| 300/s | 68 ms | 16 ms | 7,499 | 7,500 |
+| 400/s | 2.77 s | 410 ms | 7,690 | 10,199 |
+| 500/s | 1.16 s | 476 ms | 9,350 | 13,477 |
+| 600/s | 1.52 s | 841 ms | 9,111 | 14,295 |
+| 800/s | 1.18 s | 910 ms | 9,178 | 13,790 |
+
+Total delivered throughput over the bracket: 254 req/s average before,
+346 req/s after (+36%). Dropped iterations (k6 unable to even send the
+offered rate): 26,172 before, 9,739 after (-63%). Zero failures either
+way -- church was never wrong, only queued.
+
+**500-attendee youth_event, same closed-model profile as the earlier
+run:**
+
+| | Before | After |
+|---|---|---|
+| p95 | 48 ms | 30 ms |
+| median | 15 ms | 8 ms |
+| music's Postgres, peak CPU | 90% of a core | 10% of a core |
+| church's Postgres, peak CPU | 56% of a core | 9% of a core |
+| music service, peak CPU | 92% of a core | 85% of a core |
+
+Database CPU dropped by roughly 85-90% at the same offered load and
+latency roughly halved. The "before" numbers here are from today's
+stack (after the access-log change), not the 2026-10-04 figures earlier
+in this doc, which predate it -- the two access-log runs bracket the
+before/after pair fairly, but are not directly comparable to the very
+first 500-attendee run further up.
+
+One persistent connection per worker per replica, not per request:
+12+16+16=44 workers today against a 500 `max_connections` ceiling per
+database, clear even at several replicas each (see the settings.py
+comment for the arithmetic). Full test suites (auth/music/church) pass
+unchanged after the setting, confirming it is purely a connection-
+lifecycle change, not a behavior one.
+
+Live in dev. Not yet in production -- this is a config change to how
+all three services talk to their databases, the user's call on when to
+ship it, same as every production step in this project.
+
 ### What this says about the two events
 
 Nothing in the realistic profile came within an order of magnitude of a
