@@ -12,6 +12,22 @@ untouched. The harness can target production (`JUBILO_LOAD_TARGET=prod`),
 and the plan below keeps that path documented, but it is not to be run
 without an explicit decision to do so.
 
+**Capacity target (2026-10-05): at least 500 people per non-convention
+event, with margin.** The convention (~35,000, July 2027) has its own
+plan in the 2026-10-03 recommendation. Everything sized here assumes the
+worst case for shared addresses: all 500 behind a single carrier IP.
+`jubilo-auth/.../tests/test_token_throttle.py` pins this number
+(`TARGET_ATTENDEES`), so moving the target is a deliberate edit there.
+
+| Layer | What 500 means | Where it stands |
+|---|---|---|
+| Token refreshes | ~34/min steady (15-min tokens) plus ~50/min during a 10-minute door rush, worst case all behind one address | `/auth/o/token` 200/min per IP, >2x margin; a looping client stays capped |
+| Sign-ups at the venue | ~10/min for 50 invitees inside 5 minutes behind one address | invitation validate/accept 60/min per IP |
+| Login mistakes | a few failures a minute behind one address | 20 failures/min per IP, successes and page loads free |
+| Introspection on auth | one per attendee per 15 min, ~0.6/s | nothing, the 2026-10-03 analysis puts the real cost at convention scale only |
+| API load | 500 all active at once is ~100 req/s of the mixed profile; realistic peak a third of that | dev's unthrottled ceiling was ~430 req/s on a laptop; see the 500-VU run under Results |
+| Photo uploads | burst of uploads at the event | RQ worker replicas, the lever from the 2026-10-03 recommendation |
+
 ## What dev can and cannot tell us
 
 A Docker-on-macOS stack with the three Postgres databases, Redis,
@@ -48,8 +64,8 @@ has none) shape what any load test can even do:
 
 | Where | Rate | Keyed by |
 |---|---|---|
-| auth `/auth/login` | 5/min | source IP |
-| auth `/auth/o/token` | 10/min | source IP |
+| auth `/auth/login` | 20 failures/min | source IP (was 5 requests/min, page loads included, until 2026-10-05) |
+| auth `/auth/o/token` | 200/min | source IP (was 10/min until 2026-10-05) |
 | auth `/auth/o/authorize` | 10/min | logged-in user |
 | auth, any authenticated endpoint | 60/min | user |
 | music, any authenticated endpoint | 60/min | user |
@@ -58,12 +74,20 @@ has none) shape what any load test can even do:
 | church | none | — |
 
 Two consequences. A single simulated user can never exceed 1 request/s on
-music, so a crowd needs one account per simulated user. And one load
-generator IP can mint at most 10 tokens/min, which with a 15-minute token
-lifetime caps the simultaneously-live users one laptop can sustain at
-about 150. That is plenty for the youth event (200-300 attendees, far
-from all active at once) and nowhere near the 35,000-person convention,
-which would need generators on several IPs.
+music, so a crowd needs one account per simulated user. And, until
+2026-10-05, one load generator IP could mint at most 10 tokens/min,
+which with a 15-minute token lifetime capped the simultaneously-live
+users one laptop could sustain at about 150. That limit was never hit by
+anything shaped like real traffic here, but reading it prompted the
+one change this work led to: phones on a data plan reach the server
+through their carrier's shared IPv4 address (the domain has no IPv6
+record), so at an event part of the crowd can look like one caller, and
+300 attendees on 15-minute tokens need about 20 refreshes a minute
+between them. The token limit is now 200/min per IP and login counts
+only failed attempts per IP (jubilo-auth, 2026-10-05); see "Change
+made" under Results. How concentrated attendees really are behind
+shared addresses is unknown, so this is sizing by arithmetic, to be
+checked against the auth logs after the youth event.
 
 ## Expected event load, for scale
 
@@ -214,6 +238,30 @@ was really for. The p99 tail is the first request each VU makes after
 boot (cold token-cache lookups and Meilisearch's first query for a term),
 not sustained slowness.
 
+### `youth_event`, 500 attendees all active at once (2 min ramp, 3 min hold), 2026-10-05
+
+The capacity-target run: every one of 500 attendees browsing at the same
+time, which is more pessimistic than any real event of that size.
+
+| | |
+|---|---|
+| Requests | 33,972 over 5.5 min, ~95/s at the plateau |
+| Failed | 0 (no 429s, no 5xx) |
+| Latency, all requests | median 15 ms, p95 48 ms, p99 212 ms, max 929 ms |
+| music `/search` | median 13 ms, p95 23 ms |
+| music `/hymn/<id>` | median 16 ms, p95 28 ms |
+| Container CPU at peak | music ~92% of a core, music's Postgres ~90%, church's Postgres ~56%, everything else under 10% |
+
+Five times the earlier 100-attendee run, same flat latency, zero
+failures. The one thing worth noting is where the CPU went: music's
+Postgres is as busy as music itself at under 100 requests/s of simple
+queries, the same pattern the church ceiling showed. With
+`CONN_MAX_AGE=0` every request opens and closes a database connection,
+and connection setup is the most expensive thing Postgres does for a
+cheap query, so this is the strongest hint yet that item 4 on the list
+(persistent connections) is the next real capacity win. Not needed for
+500 people; it is headroom.
+
 ### `ceiling MODE=gateway` (nginx static file, no Django)
 
 Climbed to 400 requests/s with p95 3 ms, zero failures, zero dropped
@@ -288,6 +336,42 @@ music. Whether 60/min per user is the right number for an event where
 people flip between hymns quickly is a product question this surfaces,
 not an infrastructure one (the app's own search budget is already
 separate at 120/min for that reason).
+
+### Change made from these results (2026-10-05)
+
+Not from a measured limit: nothing shaped like real traffic hit a
+throttle in these runs (the one burst of token 429s was the harness
+refreshing 100 expired tokens at once, against the dev stack's relaxed
+100/min). Reading the production settings while sizing the harness is
+what raised it. `/auth/o/token` allowed 10 requests a minute per source
+IP, and `/auth/login` 5 a minute per IP counting page loads and
+successful sign-ins. Phones on a data plan reach the server through
+their carrier's shared IPv4 (carrier NAT; `www.mijubilo.com` has no
+IPv6 record), so at an event some unknown share of the crowd looks like
+one caller, and 300 people on 15-minute tokens need about 20 refreshes
+a minute between them.
+
+Changed in jubilo-auth, with tests: the token limit is 200/min per IP
+(covers the 500-person target even if every one of them shares a single
+address, with >2x margin, and keeps a cap on a buggy build refreshing
+in a loop), invitation validate/accept are 60/min per IP (a sign-up
+rush at the door; the tokens are 256-bit random so these were never a
+guessing defense), and login counts only failed attempts per IP at 20/min (`accounts/utils/
+login_lockout.py`, the mirror of the per-account lockout), so a few
+strangers mistyping behind one address cannot lock each other out while
+password spraying from one place is still limited. A per-credential
+keying for the token endpoint was tried and dropped: refresh tokens
+rotate on every use, so it would have let a looping client refresh
+without limit. How to find out whether any of this was needed: after
+the youth event, search Railway's jubilo-auth logs for status 429 on
+`/auth/o/token` and `/auth/login`.
+
+Still per-IP and unchanged: `password_reset_validate` (5/min, it guards
+a 6-digit code and has its own per-account lockout), `logout` and
+`oauth_revoke` (20/min, rare at an event). `anon` (4/min) turns out not
+to apply to any endpoint an attendee uses: the sign-up and reset views
+replace the default throttle classes with their own scoped one, and
+everything else requires authentication before throttling is checked.
 
 ### What this says about the two events
 

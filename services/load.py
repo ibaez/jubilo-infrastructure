@@ -21,14 +21,17 @@ against both stacks and nothing defaults to production:
                            production deliberately has no password-grant
                            client (jubilo-auth/scripts/auth_prod_setup.py)
 
-Token minting is deliberately slow. jubilo-auth throttles per source IP:
-/auth/login at 5/min and /auth/o/token at 10/min (settings.py
-DEFAULT_THROTTLE_RATES, keyed by the gateway-appended X-Forwarded-For).
-So one laptop can mint at most 5 users/min against prod (login + token
-per user) and 10/min against dev (token only), and a 15-minute access
-token lifetime caps the number of simultaneously-live tokens one IP can
-sustain at ~150. The k6 scripts refresh expired tokens themselves (one
-/o/token call each), so the minting pass only has to happen once.
+Token minting is paced gently and backs off on 429, but since
+2026-10-05 it no longer has to crawl: jubilo-auth's /auth/o/token
+throttle is keyed per credential (refresh token / code / account), not
+per source IP, and /auth/login only counts FAILED attempts per IP --
+exactly because a venue's Wi-Fi puts every attendee behind one IP, which
+this harness was the first to run into (one laptop looked like a venue).
+Before that change one IP could mint at most 10 tokens/min, which with
+15-minute access tokens capped a single generator at ~150 live users.
+The k6 scripts refresh expired tokens themselves (one /o/token call
+each) and the CLI saves the rotated refresh tokens back after each run,
+so the minting pass only has to happen once per session.
 
 Nothing here writes to any service's data except: load-test users
 (jubilo-auth/scripts/load_test_users.py, explicit and reversible) and
@@ -71,10 +74,12 @@ PROD_MOBILE_CLIENT_ID = "VE73YX895NmwfK4Ydfi3dkqsoK_uBQx92LgtqEd7zTo"
 MOBILE_REDIRECT_URI = "jubilo-mobile://oauthredirect"
 TOKEN_SCOPE = "auth music church"
 
-# Per-IP throttle budgets in jubilo-auth (settings.py). Paced a little
-# under the limit so a retry never lands exactly on the boundary.
-LOGIN_THROTTLE_PER_MIN = 5
-TOKEN_THROTTLE_PER_MIN = 10
+# Pacing between token requests. jubilo-auth's /o/token limit is per
+# credential (10/min each) and login's per-IP counter only counts
+# failures, so a generator minting one token per account is never the
+# thing being limited; a short gap just keeps auth's token work from
+# landing as one burst, and 429 still backs off for a full window.
+MINT_PACE_SECONDS = 0.7
 THROTTLE_BACKOFF_SECONDS = 61
 HTTP_TIMEOUT_SECONDS = 15
 
@@ -314,12 +319,10 @@ def load_tokens(service_name_list=None):
 	users = _read_users()
 
 	flow = _auth_flow(target)
-	# Pace under the tightest per-IP throttle on the path used.
-	pace = 60.0 / (LOGIN_THROTTLE_PER_MIN if flow == "pkce" else TOKEN_THROTTLE_PER_MIN) + 1.0
+	pace = MINT_PACE_SECONDS
 	client_id = _pkce_client_id(target) if flow == "pkce" else None
 
-	print(f"Minting tokens for {len(users)} users against {base_url} ({target}, {flow} flow), ~{pace:.0f}s apart "
-		f"(~{len(users) * pace / 60:.0f} min total)...")
+	print(f"Minting tokens for {len(users)} users against {base_url} ({target}, {flow} flow)...")
 
 	minted = []
 	started = time.time()
@@ -384,16 +387,17 @@ def _refresh_stale_tokens(target, tokens, horizon_seconds):
 	"""
 	Before a run, make sure no token expires within `horizon_seconds` (the
 	run's length). A run that starts with many expired tokens has every VU
-	refresh at once, which the 10/min per-IP throttle turns into a wall of
-	429s before the first real request goes out (seen 2026-10-04: a
-	ceiling run aborted at 32% failures, none of them the service under
-	test). Paced like minting, so this costs ~7s per stale token; a token
-	whose refresh token is stale is re-minted from users.csv instead.
+	refresh at once; under the old per-IP /o/token throttle that was a
+	wall of 429s before the first real request went out (seen 2026-10-04:
+	a ceiling run aborted at 32% failures, none of them the service under
+	test), and even now it is a burst of token work on auth that belongs
+	before the measurement, not inside it. A token whose refresh token is
+	stale is re-minted from users.csv instead.
 	"""
 	base_url, verify = tokens["base_url"], _verify(target)
 	flow = _auth_flow(target)
 	client_id = tokens.get("client_id") or (_pkce_client_id(target) if flow == "pkce" else None)
-	pace = 60.0 / TOKEN_THROTTLE_PER_MIN + 1.0
+	pace = MINT_PACE_SECONDS
 	deadline = int(time.time()) + horizon_seconds
 	stale = [e for e in tokens["users"] if e.get("expires_at", 0) < deadline]
 	if not stale:
@@ -405,8 +409,7 @@ def _refresh_stale_tokens(target, tokens, horizon_seconds):
 	for _ in range(2):
 		deadline = int(time.time()) + horizon_seconds + int(len(stale) * pace)
 		stale = [e for e in tokens["users"] if e.get("expires_at", 0) < deadline]
-	print(f"{len(stale)} of {len(tokens['users'])} tokens expire within {horizon_seconds // 60} min -- refreshing first, "
-		f"~{pace:.0f}s apart under the /o/token throttle (~{len(stale) * pace / 60:.0f} min)...")
+	print(f"{len(stale)} of {len(tokens['users'])} tokens expire within {horizon_seconds // 60} min -- refreshing first...")
 	passwords = {}
 	if USERS_FILE.exists():
 		passwords = {u["email"]: u["password"] for u in _read_users()}

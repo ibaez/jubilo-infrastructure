@@ -35,9 +35,10 @@ function user() {
 	return current;
 }
 
-// One /o/token refresh. jubilo-auth throttles that endpoint at 10/min per
-// source IP, so on 429 the VU backs off a random 15-45s and tells the
-// caller to skip this iteration rather than hammer it.
+// One /o/token refresh. jubilo-auth limits that endpoint per credential
+// (10/min each, since 2026-10-05; per source IP before that), so a 429
+// here means this VU's own token is being refreshed too often -- back
+// off a random 15-45s and tell the caller to skip this iteration.
 export function refreshToken() {
 	const u = user();
 	if (!u.refresh) {
