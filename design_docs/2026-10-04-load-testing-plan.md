@@ -404,6 +404,35 @@ only ever touched loggers created before Django's setup, so nothing
 else changes. The "check Railway's jubilo-auth logs for 429s" step
 above only works once that is deployed.
 
+### Found from the first production access lines (2026-10-05)
+
+With auth's access log finally reaching Railway, one request from one
+phone showed the forwarded-for chain `136.51.59.72, 152.233.76.9,
+100.64.0.3`: the phone, Railway's edge, Railway's internal hop. Three
+proxies, not the one `NUM_PROXIES: 1` assumed, so DRF had been taking
+the last entry, a rotating Railway-internal address, as the client
+identity. Every per-IP throttle in production (token, sign-up, password
+reset, logout, and the new login failure counter) had been keyed on
+Railway's own hops: in practice never applied to a real caller, and not
+spoof-resistant either. `NUM_PROXIES` is now 3, pinned by tests that
+use that exact chain. The gateway's comments describing a single hop
+are corrected. This also changes what the event checks mean: the
+per-IP limits will be applying to real client addresses for the first
+time, so the 429 search after the youth event is the first real
+measurement of them.
+
+Two more things the same lines showed. Introspection calls from music
+and church take 420-580 ms each, which is the uncached PBKDF2 client
+check the 2026-10-03 recommendation describes, now observed rather than
+inferred; still once per token per service, so fine at event scale. And
+a `CacheKeyWarning` on every introspection shows one service's OAuth
+client id in production is the literal string
+`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`: the
+command that was meant to generate it was pasted as the value. It works
+(the registered id matches), so this is cosmetic plus log noise, but it
+is worth rotating to a real random id by hand in Railway's variables
+for both jubilo-auth's provisioning and the service that uses it.
+
 ### What this says about the two events
 
 Nothing in the realistic profile came within an order of magnitude of a
