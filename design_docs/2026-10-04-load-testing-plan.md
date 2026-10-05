@@ -69,8 +69,9 @@ has none) shape what any load test can even do:
 | auth `/auth/o/authorize` | 10/min | logged-in user |
 | auth, any authenticated endpoint | 60/min | user |
 | music, any authenticated endpoint | 60/min | user |
-| music `/search` | 120/min | user (own bucket) |
-| music `/hymn/<id>/audio/download-url` | 30/min | user (own bucket) |
+| music `/search` | 120/min | user (own bucket; until 2026-10-05 the shared 60/min also applied, so this was unreachable) |
+| music `/hymn/<id>` | 120/min | user (own bucket, added 2026-10-05) |
+| music `/hymn/<id>/audio/download-url` | 30/min | user (own bucket; same fix as search) |
 | church | none | — |
 
 Two consequences. A single simulated user can never exceed 1 request/s on
@@ -372,6 +373,36 @@ a 6-digit code and has its own per-account lockout), `logout` and
 to apply to any endpoint an attendee uses: the sign-up and reset views
 replace the default throttle classes with their own scoped one, and
 everything else requires authentication before throttling is checked.
+
+### Follow-ups done (2026-10-05)
+
+**Browsing budget on music.** The music ceiling run showed the 60/min
+per-user rate was the first limit a crowd meets. Looking at why also
+turned up that the "isolated" search scope never was: every scoped view
+listed DRF's `UserRateThrottle` next to its own scope, and that
+throttle's bucket is shared by every view for the user, so the global
+60 tripped before search's 120 could. The three browsing endpoints
+(search, hymn detail, presigned audio URL) now list only their own
+scope; hymn detail got one (120/min). Everything else still shares the
+60/min. Pinned by `jubilo-music/.../tests/misc/test_browsing_throttle.py`,
+which fails against the old wiring on the 61st search of a minute.
+
+**Access logs with request time on music and church.** gunicorn now
+logs every request on all three services as
+`<gateway ip> <x-forwarded-for> "<request>" <status> <bytes> <micros>us`,
+matching what auth already had plus the forwarded-for column. On event
+day that is how to tell a slow screen from a slow network, and the
+forwarded-for column answers the open question behind the throttle
+sizing: how many attendees actually share one carrier address.
+Verified on the rebuilt dev containers. Doing so turned up that
+jubilo-auth's access log had never worked: its `LOGGING` sets
+`disable_existing_loggers: True`, which silenced gunicorn's access and
+error loggers in every worker, so production had no per-request log and
+no worker-timeout messages from auth. Fixed by setting it to `False`,
+matching music and church (and Django's recommendation); the setting
+only ever touched loggers created before Django's setup, so nothing
+else changes. The "check Railway's jubilo-auth logs for 429s" step
+above only works once that is deployed.
 
 ### What this says about the two events
 
