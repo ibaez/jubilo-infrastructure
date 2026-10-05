@@ -21,6 +21,7 @@ from services.docker import (
 	generate_token,
 )
 from services.e2e import e2e_test_revocation, e2e_test_scope_override, e2e_test_picture_processing, e2e_test_church_picture_processing
+from services.load import load_users, load_tokens, load_run
 
 import time
 import requests
@@ -680,6 +681,17 @@ COMMANDS = {
 	# dev_e2e. Assumes `dev setup` has already been run against this stack.
 	#
 	"dev.e2e": dev_e2e,
+	# ------------------------------
+	# Load testing (services/load.py; plan + runbook in
+	# design_docs/2026-10-04-load-testing-plan.md). Targets dev by default;
+	# JUBILO_LOAD_TARGET=prod aims the same three commands at production.
+	#   load users <N>|delete        provision/remove load-test accounts
+	#   load tokens                  mint one token per account -> load/tokens.json
+	#   load run <scenario> [K=V..]  k6 run of load/k6/<scenario>.js
+	#
+	"load.users": load_users,
+	"load.tokens": load_tokens,
+	"load.run": load_run,
 }
 
 def main():

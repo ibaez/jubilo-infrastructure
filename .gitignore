@@ -6,3 +6,7 @@ certs/
 CLAUDE.md
 .claude/
 commit_message.txt
+# load testing (jubilo-cli load ...): credentials, minted tokens, k6 summaries
+load/users.csv
+load/tokens.json
+load/results/
