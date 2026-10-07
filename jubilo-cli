@@ -18,6 +18,8 @@ from services.docker import (
 	docker_stop,
 	docker_down,
 	docker_run,
+	docker_update_gateway_ip,
+	docker_restart_for_ip_change,
 	generate_token,
 )
 from services.e2e import e2e_test_revocation, e2e_test_scope_override, e2e_test_picture_processing, e2e_test_church_picture_processing
@@ -453,6 +455,37 @@ def dev_setup(service_name_list=None):
 	for topic in list:
 		print(f"Topic ({topic['id']}): {topic['topic_key']}")
 
+def dev_reset_ip(service_name_list=None):
+	"""
+	For when the Mac's own LAN IP changes -- a different network, not a
+	different machine -- and nothing else about the stack needs to.
+	Unlike dev_setup, this never tears anything down, never touches the
+	database, never rebuilds an image, and never regenerates a single
+	token/secret/OAuth credential: it only swaps the IP-dependent values
+	(JUBILO_GATEWAY_IP, the three EXPO_PUBLIC_*_BASE_URL entries, and the
+	gateway's own IP-pinned SSL cert) in place, in the .env files
+	dev_setup already wrote, then recreates just the containers that
+	actually need to pick that up.
+	"""
+	print("Resetting the stack to this Mac's current IP...")
+
+	docker_host_ip = docker_get_host_ip()
+	print(f"Docker host IP address: {docker_host_ip}")
+
+	docker_update_gateway_ip(docker_host_ip)
+	docker_restart_for_ip_change()
+
+	print(f"Done -- backend now answers at https://{docker_host_ip}, and jubilo-mobile/.env points there too.")
+	print("Mobile side, no rebuild needed either way:")
+	print("  - A dev client already running against Metro: stop and restart `expo start`")
+	print("    (or `npx expo run:ios`/`run:android` again, which also restarts Metro) --")
+	print("    EXPO_PUBLIC_* values are inlined into the JS bundle when Metro starts, not")
+	print("    baked into the native app, so Metro has to actually restart to pick up the")
+	print("    new .env; a plain in-app reload alone keeps serving the old IP.")
+	print("  - A production/EAS build (the real native binary): that one genuinely does")
+	print("    have EXPO_PUBLIC_* baked in at build time -- this command can't help it,")
+	print("    only a real rebuild can.")
+
 def dev_test_jubilo_auth():
 	print("Running tests for jubilo_auth service")
 
@@ -670,6 +703,14 @@ COMMANDS = {
 	"docker.stop": docker_stop,
 	"docker.down": docker_down,
 	"dev.setup": dev_setup,
+	# ------------------------------
+	# Swaps JUBILO_GATEWAY_IP/EXPO_PUBLIC_*_BASE_URL/the gateway's SSL cert
+	# to the Mac's current LAN IP, in the .env files dev_setup already
+	# wrote -- for a different network, not a different machine. Never
+	# tears anything down, never touches the DB, never regenerates a
+	# token. See dev_reset_ip's own docstring.
+	#
+	"dev.resetip": dev_reset_ip,
 	"prod.setup": prod_setup,
 	"dev.test": dev_test,
 	# ------------------------------

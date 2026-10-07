@@ -174,6 +174,38 @@ def docker_get_host_ip():
 	result = run("ifconfig en0 | awk '/inet / { print $2 }'", capture_output=True)
 	return result.strip()
 
+def docker_update_gateway_ip(ip):
+	"""
+	Swaps just the IP-dependent values in every .env this stack writes,
+	for when the Mac's own LAN IP changes (a different network) and
+	nothing else needs to -- unlike docker_generate_*_env_file (used by
+	dev_setup, which always mints fresh OAuth client_id/secret pairs
+	too), this leaves every token/secret/credential in each file exactly
+	as it is. Regenerating those here would desync the .env files from
+	whatever's already registered in each service's own database, which
+	dev_setup's full docker_down + auth_dev_setup re-registration is what
+	actually keeps in sync -- this command skips all of that on purpose.
+	_update_env_file's own merge semantics (see its docstring) already
+	guarantee untouched keys survive; this only lists the ones that
+	change with the IP.
+	"""
+	_update_env_file("../jubilo-auth/.env",   {"JUBILO_GATEWAY_IP": ip})
+	_update_env_file("../jubilo-music/.env",  {"JUBILO_GATEWAY_IP": ip})
+	_update_env_file("../jubilo-church/.env", {"JUBILO_GATEWAY_IP": ip})
+	_update_env_file("../jubilo-mobile/.env", {
+		"JUBILO_GATEWAY_IP": ip,
+		"EXPO_PUBLIC_JUBILO_AUTH_BASE_URL": f"https://{ip}/auth",
+		"EXPO_PUBLIC_JUBILO_MUSIC_BASE_URL": f"https://{ip}/api/music",
+		"EXPO_PUBLIC_JUBILO_CHURCH_BASE_URL": f"https://{ip}/api/church",
+	})
+	docker_generate_jubilo_infrastructure_env_files(ip)
+	# The gateway's cert has the IP baked into its SAN list (mkcert ... {ip}
+	# localhost 127.0.0.1) -- a stale cert for the old IP doesn't just look
+	# wrong, the TLS handshake itself fails against the new one, so this
+	# has to be regenerated every time the IP changes, not just the .env
+	# files.
+	docker_generate_ssl_certs(ip)
+
 def docker_build(service_name_list):
 	print("Building Docker containers...")
 	run("docker compose build")
@@ -199,6 +231,22 @@ def docker_start(service_name_list):
 	print(f"Starting containers: {service_list}")
 	run(f"docker compose up -d {' '.join(service_list)}")
 	print(f"Container started: {service_list}")
+
+def docker_restart_for_ip_change():
+	"""
+	Companion to docker_update_gateway_ip -- a changed .env needs
+	--force-recreate to actually take effect (a plain `docker compose
+	restart` reuses the container's already-resolved env, same gotcha as
+	this repo's other per-service restart-vs-recreate notes), and the
+	gateway needs its own restart afterward so nginx re-reads the
+	cert file docker_generate_ssl_certs just overwrote (it's bind-mounted,
+	so the new bytes are already there -- nginx just hasn't re-read them
+	off disk yet). Auth/music/church and their three workers all share
+	their web counterpart's .env (see docker-compose.yml's env_file:
+	lines), so all six need it, not just the three web services.
+	"""
+	run("docker compose up -d --force-recreate jubilo_auth jubilo_auth_worker jubilo_music jubilo_music_worker jubilo_church jubilo_church_worker")
+	run("docker compose restart jubilo_gateway")
 
 def docker_run(service_name, cmd, env=None):
 	service_list = resolve_services([service_name])
