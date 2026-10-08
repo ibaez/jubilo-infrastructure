@@ -432,8 +432,95 @@ command that was meant to generate it was pasted as the value. It works
 (the registered id matches), so this is cosmetic plus log noise, but it
 is worth rotating to a real random id by hand in Railway's variables
 for both jubilo-auth's provisioning and the service that uses it.
+(Done 2026-10-08, by hand in Railway's variables.)
 
-### Item 4 done: CONN_MAX_AGE (2026-10-05)
+### A tripwire on the chain NUM_PROXIES assumes (2026-10-07)
+
+The three-hop chain above is Railway's routing, not a contract, and it
+can change in either direction without notice. A hop added puts one of
+Railway's own addresses in the slot the throttles key on, so every
+phone shares one bucket and the app 429s -- loud, but found on a
+Sunday. A hop removed makes `get_ident()` clamp to the leftmost entry.
+Checked the same day (2026-10-08) by sending one request through the
+gateway with two forged entries prepended: the line auth logged was
+`136.51.59.72, 79.127.177.113, 100.64.0.13` -- the forged entries were
+gone entirely. Railway's edge REPLACES a client-supplied
+X-Forwarded-For rather than appending to it, so a client cannot get an
+entry into the chain in any position, and the leftmost entry is the
+real client. A hop removed is therefore not spoofable on its own today;
+it would take the edge also starting to append -- two independent
+Railway behaviors changing -- and nothing would notice either one by
+itself. (The client cannot reach a later slot otherwise either: auth
+has no public domain, and the gateway is only reachable through the
+edge, so there is no path with fewer trusted hops.) The same line
+showed the edge's own address differs from the 2026-10-05 one
+(`79.127.177.113`, not `152.233.76.x`): the hop count is stable, the
+addresses are not, so nothing may pin a Railway range. The internal
+hop rotates too (`100.64.0.3`, `.10`, `.13`, `.15` across four
+requests).
+
+The same log window showed the private-network path for the first
+time. Music's and church's `POST /auth/o/introspect` lines carry NO
+`X-Forwarded-For` at all (`-` in the log), with `REMOTE_ADDR`
+`10.151.15.109`, Railway's internal proxy -- a different address from
+the one fronting the gateway's connections (`10.175.248.154`). So the
+middleware skips that path on the missing header before its path
+exemption is even consulted; the exemption stays as the guard for the
+day Railway starts adding the header there. The part that matters for
+capacity: with no header, DRF keys the `introspect` throttle
+(3000/min) on `REMOTE_ADDR`, and that address was the same on every
+introspect line seen. If music and church share it, 3000/min is one
+system-wide ceiling on introspections, not a per-service one: at
+15-minute tokens and two resource servers, about 22,500 people with
+the app open in the same window before introspection itself 429s --
+under the Sunday-morning figure the 50-100k growth plan implies, and a
+limit independent of the PBKDF2 cost (those lines took 412-452 ms
+each, the same ~0.5 s as before).
+
+Raised the same day to `60000/min`, pinned by a new capacity test in
+`test_token_throttle.py` the way `oauth_token` already is: every
+registered user of the planned rollout (100,000) opening the app inside
+one 15-minute token lifetime, introspected once by each of the two
+resource servers, is ~13,333/min; x2 margin is 26,667, which 3000
+failed and 60000 clears. Not re-keyed on the authenticated client,
+though that was the first idea: the endpoint is internal-only, so the
+rate was never a defence against callers, and the only job left for
+it -- catching a runaway-loop bug in a service -- is one a rate cannot
+do at this scale. A sync-gunicorn service is bounded by its own worker
+count, so even one re-introspecting on every request lands in the
+same range as a legitimate Sunday peak; the two are not separable by a
+number. That failure shows in CPU and the access log instead. The
+settings comment that had called 3000 a runaway backstop that "should
+hold without retuning" was wrong on both counts and now says so. Note
+the ordering: at one replica auth can only serve ~1,440 introspections
+a minute (24/s of PBKDF2), below even the old 3000, so the throttle
+was never the binding limit yet -- it would have become one the moment
+the PBKDF2 cost is fixed or replicas are added, which is why it is
+raised now rather than then.
+
+`ProxyChainTripwireMiddleware` (jubilo-auth, `accounts/middleware.py`,
+first in `MIDDLEWARE`) measures what `NUM_PROXIES` assumes on every
+request and logs a warning the day it stops holding: fewer entries
+than `NUM_PROXIES`, or a non-public address in the key slot
+(`ipaddress.is_global`, which correctly excludes Railway's
+100.64.0.0/10 internal hop where `is_private` would not). Once per
+chain shape per gunicorn worker, so a changed topology is a dozen
+lines after a deploy, not one per phone. It changes nothing about the
+request; the fix is still reading the access log and setting the new
+count, as it was set the first time. `/auth/o/introspect` is exempt:
+it arrives over the private network with a shorter chain by design
+(the gateway 403s it from outside). Off in `settings_dev`
+(`PROXY_CHAIN_TRIPWIRE`), where there is no edge and the chain is
+legitimately one entry long. What it cannot see: a hop added whose
+address is public, which looks healthy per request and only shows as
+the bucket collapse itself.
+
+Found running the suite for this: `BaselineSecuritySettingsTests`
+(HSTS seconds, secure cookies, SSL redirect) fails under the
+container's `settings_dev`, with or without this change -- those
+guards relax exactly the values they guard in dev, so they only ever
+pass against production settings. Not fixed here; noted so it is not
+mistaken for a regression next time.
 
 The hypothesis from the earlier runs: `CONN_MAX_AGE=0` means every
 request opens and closes a fresh Postgres connection, and connection
