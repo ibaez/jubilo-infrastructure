@@ -498,6 +498,103 @@ was never the binding limit yet -- it would have become one the moment
 the PBKDF2 cost is fixed or replicas are added, which is why it is
 raised now rather than then.
 
+### Introspection ceiling, before and after the client hasher (2026-10-08)
+
+Measured on the dev stack, same day the hasher landed in jubilo-auth
+(`design_docs/2026-10-08-client-secret-hasher.md` there). Two things the
+first attempt taught about measuring this at all:
+
+- **Not through the gateway.** Both gateway configs return 403 for
+  `/auth/o/introspect` -- that is the internal-only rule working -- so a
+  run through `BASE_URL` measured nginx's 403 at 2 ms and nothing else.
+  `ceiling.js` gained `MODE=introspect` with an `INTROSPECT_URL` override
+  that points straight at jubilo-auth the way a service does; in dev the
+  container publishes port 8000, so
+  `INTROSPECT_URL=http://192.168.86.15:8000/auth/o/introspect` (the LAN
+  IP is in auth's `ALLOWED_HOSTS`; localhost is not).
+- **Expired tokens are fine.** The client-secret check runs before the
+  token lookup and costs the same whether the token is live; an expired
+  one answers `{"active": false}` with a 200. So nothing here depends on
+  refreshing the 500 minted tokens, and
+  `JUBILO_LOAD_REFRESH_HORIZON_SECONDS=0` skips that pre-flight.
+
+Open model (`ramping-arrival-rate`), 30 s per stage, one dev auth
+container (12 sync workers), the music service's credentials:
+
+| arrival rate | before (full PBKDF2) p95 | after (client hasher) p95 |
+|-------------:|-------------------------:|--------------------------:|
+|      10 rps  |                  406 ms  |                         - |
+|      25 rps  |                  728 ms  |                     20 ms |
+|      50 rps  | 2.2 s, iterations dropped, **run aborted** | 11 ms |
+|     100 rps  |          (never reached) |                     12 ms |
+|     200 rps  |          (never reached) |                     10 ms |
+|     300 rps  |          (never reached) |                      9 ms |
+|     500 rps  |          (never reached) |            12 ms, 0% failed |
+
+Before: a ceiling of roughly 25-35 introspections/s -- where 12 workers
+divided by ~0.4 s lands. After: no ceiling found by 500 rps, the highest
+stage run; 27,881 requests, none failed. A single call by hand went from
+350-470 ms (measured while the ramp was running, the same band as
+production's 412-452 ms) to ~10 ms. The `--apply` step itself was the
+production runbook rehearsed: dry run reported both apps as
+`pbkdf2_sha256`, `--apply` re-hashed both, and music's credentials kept
+working against the re-hashed secret without any change on music's side.
+
+Same caveat as every dev number in this document: relative, not
+production capacity. The relative result is the point -- the thing that
+capped introspection is gone, and whatever caps it next (the token
+lookup, the throttle, replicas) is well past anything the rollout
+needs. Results: `load/results/20261008-110520-dev-ceiling.json` (before)
+and `20261008-110839-dev-ceiling.json` (after).
+
+**The new ceiling, found and attributed.** A third run pushed the
+after-state from 500 to 2,000 rps (30 s stages) with `docker stats`
+sampled every 15 s alongside:
+
+| arrival rate | p95 | median | note |
+|-------------:|----:|-------:|------|
+|    500 rps | 10 ms |   6 ms | |
+|    750 rps | 38 ms |   8 ms | the knee |
+|  1,000 rps | 458 ms | 124 ms | saturated |
+|  1,250 rps | 466 ms | 335 ms | plateau: the server serves what it can |
+|  1,500 rps | 443 ms | 328 ms | " |
+|  2,000 rps | 430 ms | 311 ms | ", 0.39% failed, 51k iterations dropped |
+
+Roughly **900 introspections/s actually completed** on one dev auth
+container -- the flat-latency plateau with dropped iterations is the
+open model's signature for "the server is serving all it can", not a
+k6 limit. Attributed by the samples: jubilo-auth's CPU at 880-935%
+(nine-plus of its twelve sync workers' cores flat out), its Postgres at
+70-83% of a core (the token and application lookups), Redis at 20-27%
+(the throttle's per-key history list, visible, not binding). **Zero
+429s** -- the `introspect` throttle never engaged, because the rate
+actually served (~54k/min) sat just under its 60k/min. Before the
+hasher the same container's ceiling was 25-35/s; this is ~30x. Result:
+`load/results/20261008-112311-dev-ceiling.json`.
+
+Two things that follow for production:
+
+- Production's auth replica has 8 vCPU to this container's ~9.4
+  effective, so expect a per-replica ceiling nearer 700-800/s there.
+  The rollout's worst case is ~222/s (100k users, both resource
+  servers, one 15-minute window); the convention's ~78/s. Both fit one
+  replica with room.
+- Once there is more than one auth replica, the throttle becomes the
+  system ceiling, not CPU: every replica keys introspection on the same
+  `REMOTE_ADDR` (Railway's internal proxy, no `X-Forwarded-For` on that
+  path), so 60,000/min is 1,000 introspections/s for the whole system
+  however many replicas serve it -- about 450,000 people with the app
+  open in the same window, 4.5x the rollout's worst case. Fine for the
+  foreseeable future; the number to revisit if the user base ever
+  approaches that.
+
+Lesson for the runner, applied: `JUBILO_LOAD_REFRESH_HORIZON_SECONDS=0`
+does not skip refreshing tokens that have ALREADY expired, so this
+run spent eight minutes refreshing the 500 accounts serially before
+sending a single request. `JUBILO_LOAD_SKIP_REFRESH=1` now skips the
+pre-flight outright (`services/load.py`), for a scenario that never
+needs a live token.
+
 `ProxyChainTripwireMiddleware` (jubilo-auth, `accounts/middleware.py`,
 first in `MIDDLEWARE`) measures what `NUM_PROXIES` assumes on every
 request and logs a warning the day it stops holding: fewer entries
@@ -577,6 +674,83 @@ lifecycle change, not a behavior one.
 Live in dev. Not yet in production -- this is a config change to how
 all three services talk to their databases, the user's call on when to
 ship it, same as every production step in this project.
+
+### Photo pipeline: the worker's seconds per photo (2026-10-08)
+
+Pictures are the one write path the rollout and the convention put at
+user scale. The gate is `has_picture_submit_authority`, not the official
+one: any current member can add up to `MEMBER_PICTURES_MAX_PER_EVENT` = 5
+photos (8 MB each) to an event of their church or community once it has
+started, and with `MEMBER_PHOTOS_PUBLISH_IMMEDIATELY` on, any member with
+a church can at a kingdom-tier event -- so the convention's ~35,000
+members are up to 175,000 photos over the week. Each is a multipart POST
+the church web process accepts (writing the source to R2 inside the
+request) and a job for the single `rqworker` process: decode, EXIF
+transpose, three LANCZOS resizes, three JPEG encodes, three R2 PUTs,
+one R2 DELETE -- and, first, a GET of the source from R2, since the web
+and worker processes share nothing but storage. Photo lag is that
+worker's seconds per photo.
+
+**Harness:** `./jubilo-cli load photos COUNT=50 CONCURRENCY=8`
+(`services/load_photos.py`; dev only by construction, deletes what it
+creates). A 4000x3000 JPEG of 3.22 MB with an EXIF orientation tag, the
+shape of a phone photo, generated once by Pillow inside the worker
+container (this repo's venv has no Pillow) and cached at
+`load/photo.jpg`. Uploaded as the dev superuser to a throwaway
+kingdom-tier event (official authority: no cap, no started-event rule;
+the worker does not care who uploaded). It reports the ingest side, the
+drain, and -- `BENCH=5` -- the same Pillow work on the same bytes inside
+the worker container with no storage at all: the CPU part isolated.
+Unit tests for the stack-free parts in `tests/`.
+
+**Results, three runs (one dev worker container, real Cloudflare R2
+over the Mac's home uplink):**
+
+| | 50 photos, 8 concurrent | 20, 8 | 20, 8 |
+|---|---|---|---|
+| ingest: uploads/s | 8.0 | 7.7 | 7.2 |
+| ingest: POST median / p95 | 0.81 s / 1.80 s | 0.79 / 1.54 | 0.95 / 1.20 |
+| backlog when the last POST returned | 50 | 20 | 20 |
+| worker: seconds per photo, wall clock | **3.70** | 3.66 | 3.65 |
+| worker: photos/s | 0.27 | 0.27 | 0.27 |
+| last photo ready, after the last upload | 181 s | 72 s | 71 s |
+| CPU bench, median of 5, no storage | **0.49 s** (0.48-0.50) | | |
+
+Outputs per photo: 2,210 KB full (4000 px), 130 KB viewing (1600 px),
+4 KB thumbnail (300 px). Worker CPU during the drain 13-29% of a core,
+church web 0-9%, its Postgres under 4%, gateway under 4%.
+
+**What it says.** The worker is serial and spends ~0.5 s of every 3.7 s
+computing; the other ~3.2 s is the R2 leg (one 3.2 MB GET, a 2.2 MB
+PUT, two small PUTs, a DELETE), which in dev rides a home uplink and in
+production rides Railway's link to Cloudflare -- so 3.7 s is a dev
+number that will not transfer and 0.5 s is the part that will (a
+Railway vCPU vs a Mac core, the usual caveat). Even at a guessed
+production R2 leg of 0.5-1 s, one worker process is ~1-1.5 s per photo:
+~2,400-3,600 photos an hour, 50 a minute. A church's Sunday is fine on
+that; a convention evening where 5,000 photos land in an hour is 2-3
+photos/s and needs several worker processes.
+
+The lever is cheap because the worker is I/O-bound: `rqworker` is one
+process, so N processes (or N worker replicas -- RQ hands each job to
+one worker, nothing else changes) give close to N times the throughput
+until CPU binds, at roughly 2 photos/s per core at 0.5 s CPU each. That
+is the convention-week item: measure production's own seconds per photo
+from the worker's log timestamps on an ordinary event (there is no
+updated timestamp on `EventPicture`; `created_dttm` to the worker's log
+line) and size the worker count from it -- a job for before July 2027,
+not before invitations open, since a slow drain shows as photos
+arriving minutes late, not as errors.
+
+The ingest side is a behaviour check here, not a ceiling: `PictureCreate`
+holds a gunicorn sync worker for the whole R2 write of the source, 0.8 s
+median in dev at 8 concurrent, and the gateway buffers the body first
+(`client_max_body_size 22m`), so a slow phone never holds a Django
+worker. With 16 sync workers per church replica, uploads/s per replica
+is 16 over production's per-upload R2 write time -- unmeasured, and the
+number to watch at the convention if church replicas are the question.
+Nothing misbehaved at 8 concurrent uploads: no 5xx, no lost enqueue,
+every photo reached `ready`, every delete returned 204.
 
 ### What this says about the two events
 

@@ -24,6 +24,7 @@ from services.docker import (
 )
 from services.e2e import e2e_test_revocation, e2e_test_scope_override, e2e_test_picture_processing, e2e_test_church_picture_processing
 from services.load import load_users, load_tokens, load_run
+from services.load_photos import load_photos
 
 import time
 import requests
@@ -729,10 +730,13 @@ COMMANDS = {
 	#   load users <N>|delete        provision/remove load-test accounts
 	#   load tokens                  mint one token per account -> load/tokens.json
 	#   load run <scenario> [K=V..]  k6 run of load/k6/<scenario>.js
+	#   load photos [K=V..]          dev only: upload a burst of real photos, time the
+	#                                worker draining them (services/load_photos.py)
 	#
 	"load.users": load_users,
 	"load.tokens": load_tokens,
 	"load.run": load_run,
+	"load.photos": load_photos,
 }
 
 def main():

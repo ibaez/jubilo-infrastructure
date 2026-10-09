@@ -36,7 +36,9 @@ so the minting pass only has to happen once per session.
 Nothing here writes to any service's data except: load-test users
 (jubilo-auth/scripts/load_test_users.py, explicit and reversible) and
 the OAuth token rows minting creates (expire on their own). Every k6
-scenario is GET-only.
+scenario is GET-only; the one write scenario, `load photos`
+(services/load_photos.py), is dev-only by construction and deletes what
+it creates.
 """
 
 import base64
@@ -485,8 +487,19 @@ def load_run(service_name_list=None):
 	summary = RESULTS_DIR / f"{stamp}-{target}-{scenario}.json"
 	k6_log = RESULTS_DIR / f"{stamp}-{target}-{scenario}.log"
 
-	horizon = int(os.environ.get("JUBILO_LOAD_REFRESH_HORIZON_SECONDS", "600"))
-	_refresh_stale_tokens(target, tokens, horizon)
+	# JUBILO_LOAD_SKIP_REFRESH=1 skips the pre-flight entirely. The horizon
+	# only decides which not-yet-expired tokens get refreshed early; a token
+	# that has already expired is always refreshed, serially, one /o/token
+	# call at a time -- about 8 minutes for the 500 minted accounts once
+	# they are past their 15-minute lifetime. A scenario that never needs a
+	# live token (ceiling.js MODE=introspect: an expired token costs the
+	# same to introspect and answers 200 {"active": false}) has no reason to
+	# wait for that.
+	if os.environ.get("JUBILO_LOAD_SKIP_REFRESH") == "1":
+		print("JUBILO_LOAD_SKIP_REFRESH=1 -- not refreshing tokens first; expired ones stay expired.")
+	else:
+		horizon = int(os.environ.get("JUBILO_LOAD_REFRESH_HORIZON_SECONDS", "600"))
+		_refresh_stale_tokens(target, tokens, horizon)
 
 	cmd = [
 		"k6", "run",
