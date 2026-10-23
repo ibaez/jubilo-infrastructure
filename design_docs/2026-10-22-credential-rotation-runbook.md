@@ -130,6 +130,19 @@ once -- copy both before navigating away. The Access Key ID itself doesn't chang
 derived from the account + token identity, not random secret material) -- only
 `R2_SECRET_ACCESS_KEY` needs updating in Railway, not `R2_ACCESS_KEY_ID`.
 
+**The local dev stack uses the same R2 token.** `jubilo-music/.env` (the `env_file` that
+`docker-compose.yml` gives `jubilo_music` and `jubilo_music_worker`) carries its own copy of
+`R2_SECRET_ACCESS_KEY`, so a roll also kills audio playback on every dev client (the emulators
+and the G45): `download-url` still answers 200, but the presigned url it signs is rejected by R2
+with `SignatureDoesNotMatch`, and nothing plays anywhere in the app -- found this way on
+2026-10-23, a day after the roll. Put the new secret in `.env`, then recreate (not restart, see
+`feedback_env_changes_need_recreate`) every service that reads it:
+`docker compose up -d --force-recreate jubilo_music jubilo_music_worker`. Quick check from inside
+the container afterwards -- `list_objects_v2` on the bucket with the configured credentials
+should succeed instead of raising `SignatureDoesNotMatch`, and a `GET` (not `HEAD` -- the method is part
+of the signature, so a HEAD on a GET-presigned url is a 403 even when everything is right) with
+`Range: bytes=0-0` on a presigned url should come back 206.
+
 ### Resend API key
 Only actually read by `jubilo-auth-worker` (where `send_mail` really executes, via RQ jobs) --
 `jubilo-auth`'s own web process never calls `send_mail` directly (`EMAIL_BACKEND` is
